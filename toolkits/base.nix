@@ -1,4 +1,7 @@
-{ callPackage, deps }:
+{
+  callPackage,
+  deps,
+}:
 callPackage ./installer.nix deps {
   kit = "base";
   version = "2025.2.0.592";

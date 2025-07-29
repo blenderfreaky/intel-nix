@@ -1,4 +1,4 @@
-{ base }:
+{base}:
 base.makeKit {
   kit = "hpc";
   version = "2025.2.0.575";
