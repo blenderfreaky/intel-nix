@@ -14,6 +14,7 @@
   # We can also use this to debug unified-runtime without building the entire LLVM project.
   unified-runtime,
   sphinx,
+  doxygen,
   level-zero,
   libcxx,
   libxml2,
@@ -96,6 +97,7 @@ stdenv.mkDerivation rec {
   buildInputs = [
     zstd
     sphinx
+    doxygen
     spirv-tools
     libxml2
     valgrind.dev
@@ -155,7 +157,7 @@ stdenv.mkDerivation rec {
   ]
   ++ unified-runtime'.cmakeFlags;
 
-  # This hardening option doesn't work when compiling for amdgcn
+  # This hardening option causes compilation errors when compiling for amdgcn
   hardeningDisable = lib.optionals rocmSupport [ "zerocallusedregs" ];
 
   configurePhase = ''

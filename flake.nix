@@ -18,12 +18,12 @@
         pkgs = nixpkgs.legacyPackages.${system};
       in
       {
-        packages = rec {
-          llvm = pkgs.callPackage ./llvm { inherit unified-runtime; };
-          unified-runtime = pkgs.callPackage ./unified-runtime.nix { inherit unified-memory-framework; };
-          unified-memory-framework = pkgs.callPackage ./unified-memory-framework.nix { };
+        packages = {
+          src = pkgs.callPackage ./src { };
 
           toolkits = pkgs.callPackage ./toolkits { };
+
+          # deb = pkgs.callPackage ./deb { };
         };
       }
     );
