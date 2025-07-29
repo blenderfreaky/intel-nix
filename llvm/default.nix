@@ -22,7 +22,6 @@
   callPackage,
   spirv-tools,
   zlib,
-  #clang-tools,
   wrapCC,
   rocmPackages ? { },
   levelZeroSupport ? true,
@@ -52,26 +51,17 @@ let
       buildTests
       ;
   };
+  # See the postPatch phase for details on why this is used
   ccWrapperStub = wrapCC (
     stdenv.mkDerivation {
       name = "ccWrapperStub";
       dontUnpack = true;
       installPhase =
         let
-          #root = ".";
-          #root = "/home/blenderfreaky/src/stuff/intel/intel-llvm/build";
           root = "/build/source/build";
         in
         ''
           mkdir -p $out/bin
-          #for bin in clang
-          #do
-          #  cat > $out/bin/$bin <<EOF
-          ##!/bin/sh
-          #exec "${root}/bin/$bin" "\$@"
-          #EOF
-          #  chmod +x $out/bin/$bin
-          #done
           cat > $out/bin/clang++ <<EOF
           #!/bin/sh
           exec "${root}/bin/clang-21" "\$@"
@@ -93,9 +83,6 @@ stdenv.mkDerivation rec {
     sha256 = "sha256-xbmZOHTi4DMu53GEoqH2JKuGQh8Kd/srqS3+YR0Jvqg=";
   };
 
-  # # Otherwise llvm-min-tblgen fails for some reason
-  # NIX_CFLAGS_COMPILE = "-static-libstdc++";
-
   nativeBuildInputs = [
     cmake
     ninja
@@ -114,11 +101,7 @@ stdenv.mkDerivation rec {
     valgrind.dev
     zlib
     libedit
-    # stdenv.cc.libc
-    # stdenv.cc.cc.lib
-    # libgcc.lib
     zlib
-    #clang-tools
     hwloc
   ]
   ++ lib.optionals useLibcxx [
@@ -133,28 +116,29 @@ stdenv.mkDerivation rec {
     substituteInPlace unified-runtime/cmake/helpers.cmake \
       --replace-fail "PYTHON_EXECUTABLE" "Python3_EXECUTABLE"
 
+    # When running without this, their CMake code copies files from the Nix store.
+    # As the Nix store is read-only and COPY copies permissions by default,
+    # this will lead to the copied files also being read-only.
+    # As CMake at a later point wants to write into copied folders, this causes
+    # the build to fail with a (rather cryptic) permission error.
+    # By setting NO_SOURCE_PERMISSIONS we side-step this issue.
+    # Note in case of future build failures: if there are executables in any of the copied folders,
+    # we may need to add special handling to set the executable permissions.
     sed -i '/file(COPY / { /NO_SOURCE_PERMISSIONS/! s/)\s*$/ NO_SOURCE_PERMISSIONS)/ }' \
-        unified-runtime/cmake/FetchLevelZero.cmake \
-        sycl/CMakeLists.txt \
-        sycl/cmake/modules/FetchEmhash.cmake
+    unified-runtime/cmake/FetchLevelZero.cmake \
+    sycl/CMakeLists.txt \
+    sycl/cmake/modules/FetchEmhash.cmake
 
+    # Parts of libdevice are built using the freshly-built compiler.
+    # As it tries to link to system libraries, we need to wrap it with the
+    # usual nix cc-wrapper.
+    # Since the compiler to be wrapped is not available at this point,
+    # we use a stub that points to where it will be later on
+    # in `/build/source/build/bin/clang-21`
     # Note: both nix and bash try to expand clang_exe here, so double-escape it
     substituteInPlace libdevice/cmake/modules/SYCLLibdevice.cmake \
       --replace-fail "\''${clang_exe}" "${ccWrapperStub}/bin/clang++"
-
-    # cat libdevice/cmake/modules/SYCLLibdevice.cmake
-    # NIX_DEBUG=1 gcc fake.cpp || true
-    echo $ninjaInstallPhase
-    echo $installPhase
   '';
-
-  # preConfigure = ''
-  #   # For some reason, it doesn't create this on its own,
-  #   # causing a cryptic Permission denied error.
-  #   mkdir -p /build/source/build/unified-runtime/source/common/level_zero_loader/level_zero/
-
-  #   mkdir -p /build/source/build/include/{sycl,CL,std,syclcompat}
-  # '';
 
   cmakeFlags = [
     (lib.cmakeBool "FETCHCONTENT_FULLY_DISCONNECTED" true)
@@ -168,24 +152,10 @@ stdenv.mkDerivation rec {
     (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_OCL-HEADERS" "${deps.opencl-headers}")
     (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_OCL-ICD" "${deps.opencl-icd-loader}")
     (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_ONEAPI-CK" "${deps.oneapi-ck}")
-
-    # This is for llvm-min-tblgen, which is built and then immediately ran by CMake.
-    # (lib.cmakeBool "CMAKE_BUILD_WITH_INSTALL_RPATH" true)
-    # (lib.cmakeFeature "CMAKE_INSTALL_RPATH" "${
-    #   lib.makeLibraryPath [
-    #     stdenv.cc.cc.lib
-    #     zlib
-    #   ]
-    # }:/build/source/build/lib")
-    # (lib.cmakeFeature "CMAKE_EXE_LINKER_FLAGS" "-Wl,-rpath,${
-    #   lib.makeLibraryPath [
-    #     stdenv.cc.cc.lib
-    #     zlib
-    #   ]
-    # }:/build/source/build/lib")
   ]
   ++ unified-runtime'.cmakeFlags;
 
+  # This hardening option doesn't work when compiling for amdgcn
   hardeningDisable = lib.optionals rocmSupport [ "zerocallusedregs" ];
 
   configurePhase = ''
@@ -207,11 +177,8 @@ stdenv.mkDerivation rec {
     ${lib.optionalString useLdd "--use-lld"} \
     ${lib.optionalString levelZeroSupport "--level_zero_adapter_version V1"} \
     $cmakeFlags
-    #--cmake-opt '${lib.strings.concatStringsSep " " cmakeFlags}'
 
     # --enable-all-llvm-targets \
-    #
-
 
     runHook postConfigure
   '';
@@ -219,6 +186,7 @@ stdenv.mkDerivation rec {
   buildPhase = ''
     runHook preBuild
 
+    echo $LD_LIBRARY_PATH
     export LD_LIBRARY_PATH="${
       lib.makeLibraryPath [
         stdenv.cc.cc.lib
@@ -237,6 +205,13 @@ stdenv.mkDerivation rec {
 
   requiredSystemFeatures = [ "big-parallel" ];
   enableParallelBuilding = true;
+
+  installPhase = ''
+    runHook preInstall
+
+
+    runHook postInstall
+  '';
 
   doCheck = true;
 
