@@ -41,6 +41,8 @@
   useLibcxx ? false,
   useLdd ? true,
   buildTests ? false,
+  buildDocs ? false,
+  buildMan ? false,
 }: let
   version = "nightly-2025-07-18";
   deps = callPackage ./deps.nix {};
@@ -108,8 +110,6 @@ in
         valgrind.dev
         zlib
         libedit
-        zlib
-        hwloc
         hwloc.dev
         intel-compute-runtime
 
@@ -120,6 +120,12 @@ in
         libcxx.dev
       ]
       ++ unified-runtime'.buildInputs;
+
+    propagatedBuildInputs = [
+      stdenv.cc.cc.lib
+      hwloc
+      zlib
+    ];
 
     # TODO: Is this needed?
     nativeCheckInputs = lib.optionals buildTests [
@@ -161,8 +167,6 @@ in
     '';
 
     preConfigure = ''
-      tree
-
       flags=$(python buildbot/configure.py \
           --print-cmake-flags \
           -t Release \
@@ -198,6 +202,24 @@ in
 
     cmakeFlags =
       [
+        # (lib.cmakeFeature "LLVM_TARGETS_TO_BUILD" (lib.concatStringsSep ";" llvmTargetsToBuild'))
+        # (lib.cmakeFeature "LLVM_ENABLE_PROJECTS" (lib.concatStringsSep ";" llvmProjectsToBuild))
+        # (lib.cmakeFeature "LLVM_HOST_TRIPLE" stdenv.hostPlatform.config)
+        # (lib.cmakeFeature "LLVM_DEFAULT_TARGET_TRIPLE" stdenv.hostPlatform.config)
+        # (lib.cmakeBool "LLVM_INSTALL_UTILS" true)
+        # (lib.cmakeBool "LLVM_INCLUDE_DOCS" (buildDocs || buildMan))
+        # (lib.cmakeBool "MLIR_INCLUDE_DOCS" (buildDocs || buildMan))
+        # (lib.cmakeBool "LLVM_BUILD_DOCS" (buildDocs || buildMan))
+        # # Way too slow, only uses one core
+        # # (lib.cmakeBool "LLVM_ENABLE_DOXYGEN" (buildDocs || buildMan))
+        # (lib.cmakeBool "LLVM_ENABLE_SPHINX" (buildDocs || buildMan))
+        # (lib.cmakeBool "SPHINX_OUTPUT_HTML" buildDocs)
+        # (lib.cmakeBool "SPHINX_OUTPUT_MAN" buildMan)
+        # (lib.cmakeBool "SPHINX_WARNINGS_AS_ERRORS" false)
+        # (lib.cmakeBool "LLVM_INCLUDE_TESTS" buildTests)
+        # (lib.cmakeBool "MLIR_INCLUDE_TESTS" buildTests)
+        # (lib.cmakeBool "LLVM_BUILD_TESTS" buildTests)
+
         (lib.cmakeBool "FETCHCONTENT_FULLY_DISCONNECTED" true)
         (lib.cmakeBool "FETCHCONTENT_QUIET" false)
 
@@ -236,19 +258,19 @@ in
     #   runHook postBuild
     # '';
 
-    env.LD_LIBRARY_PATH = "${
-      lib.makeLibraryPath [
-        stdenv.cc.cc.lib
-        zlib
-        hwloc
-      ]
-    }:/build/source/build/lib";
+    # env.LD_LIBRARY_PATH = "${
+    #   lib.makeLibraryPath [
+    #     stdenv.cc.cc.lib
+    #     zlib
+    #     hwloc
+    #   ]
+    # }:/build/source/build/lib";
 
-    # TODO: This may actually be obsolete with the wrapping in-place now
-    NIX_LDFLAGS = "-lhwloc";
+    # # TODO: This may actually be obsolete with the wrapping in-place now
+    # NIX_LDFLAGS = "-lhwloc";
 
     postBuild = ''
-      tree
+      tree /build/source/build
     '';
 
     requiredSystemFeatures = ["big-parallel"];
