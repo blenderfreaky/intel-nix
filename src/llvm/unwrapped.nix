@@ -22,6 +22,9 @@
   lld,
   callPackage,
   spirv-tools,
+  intel-compute-runtime,
+  # opencl-headers,
+  # emhash,
   zlib,
   wrapCC,
   rocmPackages ? {},
@@ -104,12 +107,20 @@ in
         libedit
         zlib
         hwloc
+        hwloc.dev
+        intel-compute-runtime
+
+        # emhash
       ]
       ++ lib.optionals useLibcxx [
         libcxx
         libcxx.dev
       ]
       ++ unified-runtime'.buildInputs;
+
+    patches = [
+      ./buildbot.patch
+    ];
 
     postPatch = ''
       # The latter is used everywhere except this one file. For some reason,
@@ -141,6 +152,40 @@ in
         --replace-fail "\''${clang_exe}" "${ccWrapperStub}/bin/clang++"
     '';
 
+    preConfigure = ''
+      flags=$(python buildbot/configure.py \
+          --print-cmake-flags \
+          -t Release \
+          --docs \
+          --shared-libs \
+          --cmake-gen Ninja \
+          --l0-headers ${lib.getInclude level-zero}/include/level_zero \
+          --l0-loader ${lib.getLib level-zero}/lib/libze_loader.so \
+          ${lib.optionalString cudaSupport "--cuda"} \
+          ${lib.optionalString rocmSupport "--hip"} \
+          ${lib.optionalString nativeCpuSupport "--native_cpu"} \
+          ${lib.optionalString useLibcxx "--use-libcxx"} \
+          ${lib.optionalString useLibcxx "--libcxx-include ${lib.getInclude libcxx}/include"} \
+          ${lib.optionalString useLibcxx "--libcxx-library ${lib.getLib libcxx}/lib"} \
+          ${lib.optionalString useLdd "--use-lld"} \
+          ${lib.optionalString levelZeroSupport "--level_zero_adapter_version V1"} \
+          # --enable-all-llvm-targets
+      )
+
+
+      # We eval because flags is separated as shell-escaped strings.
+      # We can't just split by space because it may contain escaped spaces,
+      # so we just let bash handle it.
+      # TODO: This may not be necessary
+      eval "appendToVar cmakeFlags $flags"
+
+      for flag in $cmakeFlags; do
+          echo "CMake flag: $flag"
+      done
+    '';
+
+    cmakeDir = "/build/source/llvm";
+
     cmakeFlags =
       [
         (lib.cmakeBool "FETCHCONTENT_FULLY_DISCONNECTED" true)
@@ -151,6 +196,7 @@ in
 
         (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_EMHASH" "${deps.emhash}")
         (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_PARALLEL-HASHMAP" "${deps.parallel-hashmap}")
+        # (lib.cmakeFeature "OpenCL_HEADERS" "${opencl-headers}/include")
         (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_OCL-HEADERS" "${deps.opencl-headers}")
         (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_OCL-ICD" "${deps.opencl-icd-loader}")
         (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_ONEAPI-CK" "${deps.oneapi-ck}")
@@ -160,60 +206,39 @@ in
     # This hardening option causes compilation errors when compiling for amdgcn
     hardeningDisable = lib.optionals rocmSupport ["zerocallusedregs"];
 
-    configurePhase = ''
-      runHook preConfigure
+    # buildPhase = ''
+    #   runHook preBuild
 
-      python buildbot/configure.py \
-      -t Release \
-      --docs \
-      --shared-libs \
-      --cmake-gen Ninja \
-      --l0-headers ${lib.getInclude level-zero}/include/level_zero \
-      --l0-loader ${lib.getLib level-zero}/lib/libze_loader.so \
-      ${lib.optionalString cudaSupport "--cuda"} \
-      ${lib.optionalString rocmSupport "--hip"} \
-      ${lib.optionalString nativeCpuSupport "--native_cpu"} \
-      ${lib.optionalString useLibcxx "--use-libcxx"} \
-      ${lib.optionalString useLibcxx "--libcxx-include ${lib.getInclude libcxx}/include"} \
-      ${lib.optionalString useLibcxx "--libcxx-library ${lib.getLib libcxx}/lib"} \
-      ${lib.optionalString useLdd "--use-lld"} \
-      ${lib.optionalString levelZeroSupport "--level_zero_adapter_version V1"} \
-      $cmakeFlags
+    #   # TODO: Is this really needed?
+    #   echo $LD_LIBRARY_PATH
+    #   export LD_LIBRARY_PATH="${
+    #     lib.makeLibraryPath [
+    #       stdenv.cc.cc.lib
+    #       zlib
+    #       hwloc
+    #     ]
+    #   }:/build/source/build/lib"
 
-      # --enable-all-llvm-targets \
+    #   # python buildbot/compile.py --verbose
+    #   # TODO: replace 12 with $NIX_BUILD_PARALLELISM or whatever the flag was
+    #   cmake --build /build/source/build -- deploy-sycl-toolchain -j 12
 
-      runHook postConfigure
-    '';
+    #   runHook postBuild
+    # '';
 
-    buildPhase = ''
-      runHook preBuild
-
-      echo $LD_LIBRARY_PATH
-      export LD_LIBRARY_PATH="${
-        lib.makeLibraryPath [
-          stdenv.cc.cc.lib
-          zlib
-          hwloc
-        ]
-      }:/build/source/build/lib"
-
-      python buildbot/compile.py --verbose
-
-      runHook postBuild
-    '';
+    env.LD_LIBRARY_PATH = "${
+      lib.makeLibraryPath [
+        stdenv.cc.cc.lib
+        zlib
+        hwloc
+      ]
+    }:/build/source/build/lib";
 
     # TODO: This may actually be obsolete with the wrapping in-place now
     NIX_LDFLAGS = "-lhwloc";
 
     requiredSystemFeatures = ["big-parallel"];
     enableParallelBuilding = true;
-
-    installPhase = ''
-      runHook preInstall
-
-
-      runHook postInstall
-    '';
 
     doCheck = true;
 
