@@ -6,7 +6,7 @@
   ninja,
   level-zero,
   hwloc,
-  jemalloc,
+  # jemalloc,
   tbb,
   numactl,
   pkg-config,
@@ -19,7 +19,7 @@
   python3,
   doxygen,
   sphinx,
-  buildDocs ? false,
+  buildDocs ? true,
 }: let
   version = "1.0.0";
   tag = "v${version}";
@@ -35,6 +35,12 @@
     tag = "v1.9.0";
     sha256 = "sha256-5cl1PIjhXaL58kSyWZXRWLq6BITS2BwEovPhwvk2e18=";
   };
+  jemalloc = fetchFromGitHub {
+    owner = "jemalloc";
+    repo = "jemalloc";
+    tag = "5.3.0";
+    sha256 = "sha256-bb0OhZVXyvN+hf9BpPSykn5cGm87a0C+Y/iXKt9wTSs=";
+  };
 in
   stdenv.mkDerivation (finalAttrs: {
     name = "unified-memory-framework";
@@ -44,8 +50,6 @@ in
       [
         cmake
         ninja
-        level-zero
-        tbb
         pkg-config
       ]
       ++ lib.optionals buildDocs [
@@ -56,8 +60,11 @@ in
 
     buildInputs =
       [
+        level-zero
+        tbb
         hwloc
-        jemalloc
+        hwloc.dev
+        # jemalloc
       ]
       ++ lib.optionals cudaSupport [
         cudaPackages.cuda_cudart
@@ -66,6 +73,7 @@ in
         numactl
       ];
 
+    # TODO: Is this needed?
     nativeCheckInputs = lib.optionals buildTests [
       ctestCheckHook
     ];
@@ -92,18 +100,26 @@ in
         (lib.cmakeBool "UMF_BUILD_CUDA_PROVIDER" cudaSupport)
         (lib.cmakeBool "UMF_BUILD_LEVEL_ZERO_PROVIDER" levelZeroSupport)
 
-        # (lib.cmakeBool "UMF_BUILD_LIBUMF_POOL_JEMALLOC" true)
+        # Building with jemalloc currently fails
+        # TODO: Fix
+        (lib.cmakeBool "UMF_BUILD_LIBUMF_POOL_JEMALLOC" false)
 
         (lib.cmakeBool "UMF_BUILD_TESTS" buildTests)
         (lib.cmakeBool "UMF_BUILD_GPU_TESTS" buildTests)
         (lib.cmakeBool "UMF_BUILD_BENCHMARKS" buildTests)
         (lib.cmakeBool "UMF_BUILD_EXAMPLES" buildTests)
         (lib.cmakeBool "UMF_BUILD_GPU_EXAMPLES" buildTests)
+
+        # (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_JEMALLOC_TARG" "${jemalloc}")
       ]
       ++ lib.optionals buildTests [
         (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_GOOGLETEST" "${gtest}")
         (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_GOOGLEBENCHMARK" "${gbench}")
       ];
 
-    passthru.tests = finalAttrs.finalPackage.override {buildTests = true;};
+    # postConfigure = ''
+    #   cat build.ninja | head 560
+    # '';
+
+    doCheck = buildTests;
   })

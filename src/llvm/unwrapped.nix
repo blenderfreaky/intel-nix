@@ -23,10 +23,12 @@
   callPackage,
   spirv-tools,
   intel-compute-runtime,
+  tree, # For testing. TODO: Remove
   # opencl-headers,
   # emhash,
   zlib,
   wrapCC,
+  ctestCheckHook,
   rocmPackages ? {},
   levelZeroSupport ? true,
   openclSupport ? true,
@@ -86,6 +88,7 @@ in
 
     nativeBuildInputs =
       [
+        tree # For testing. TODO: Remove
         cmake
         ninja
         python3
@@ -117,6 +120,11 @@ in
         libcxx.dev
       ]
       ++ unified-runtime'.buildInputs;
+
+    # TODO: Is this needed?
+    nativeCheckInputs = lib.optionals buildTests [
+      ctestCheckHook
+    ];
 
     patches = [
       ./buildbot.patch
@@ -153,6 +161,8 @@ in
     '';
 
     preConfigure = ''
+      tree
+
       flags=$(python buildbot/configure.py \
           --print-cmake-flags \
           -t Release \
@@ -236,6 +246,10 @@ in
 
     # TODO: This may actually be obsolete with the wrapping in-place now
     NIX_LDFLAGS = "-lhwloc";
+
+    postBuild = ''
+      tree
+    '';
 
     requiredSystemFeatures = ["big-parallel"];
     enableParallelBuilding = true;
