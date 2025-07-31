@@ -272,8 +272,8 @@ stdenv.mkDerivation rec {
     ]
   }:/build/source/build/lib";
 
-  # # TODO: This may actually be obsolete with the wrapping in-place now
-  # NIX_LDFLAGS = "-lhwloc";
+  # TODO: This may actually be obsolete with the wrapping in-place now
+  NIX_LDFLAGS = "-lhwloc";
 
   postBuild = ''
     tree /build/source/build
