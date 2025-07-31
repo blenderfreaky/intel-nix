@@ -277,6 +277,8 @@ stdenv.mkDerivation rec {
   #   runHook postBuild
   # '';
 
+  # Despite the RPath setting, this is needed for the build to succeed
+  # TODO: Investigate why this is needed
   env.LD_LIBRARY_PATH = "${
     lib.makeLibraryPath [
       stdenv.cc.cc.lib
