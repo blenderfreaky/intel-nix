@@ -193,9 +193,15 @@ in
       # TODO: This may not be necessary
       eval "appendToVar cmakeFlags $flags"
 
-      for flag in $cmakeFlags; do
-          echo "CMake flag: $flag"
-      done
+      # for i in "''${!cmakeFlags[@]}"; do
+      #   if [[ "''${cmakeFlags[i]}" == "-DCMAKE_INSTALL_PREFIX=/build/source/build/install" ]]; then
+      #       unset 'cmakeFlags[i]'
+      #       break
+      #   fi
+      # done
+
+      # Remove the install prefix flag
+      cmakeFlags=(''${cmakeFlags[@]/-DCMAKE_INSTALL_PREFIX=\/build\/source\/build\/install})
     '';
 
     cmakeDir = "/build/source/llvm";
