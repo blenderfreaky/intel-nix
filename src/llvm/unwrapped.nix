@@ -172,7 +172,6 @@ stdenv.mkDerivation rec {
         --print-cmake-flags \
         -t Release \
         --docs \
-        --shared-libs \
         --cmake-gen Ninja \
         --l0-headers ${lib.getInclude level-zero}/include/level_zero \
         --l0-loader ${lib.getLib level-zero}/lib/libze_loader.so \
@@ -185,6 +184,7 @@ stdenv.mkDerivation rec {
         ${lib.optionalString useLdd "--use-lld"} \
         ${lib.optionalString levelZeroSupport "--level_zero_adapter_version V1"} \
         # --enable-all-llvm-targets
+        # --shared-libs # Bad and should not be used
     )
 
 
@@ -192,7 +192,8 @@ stdenv.mkDerivation rec {
     # We can't just split by space because it may contain escaped spaces,
     # so we just let bash handle it.
     # TODO: This may not be necessary
-    eval "appendToVar cmakeFlags $flags"
+    # NOTE: We prepend, so that flags we set manually override what the build script does.
+    eval "prependToVar cmakeFlags $flags"
 
     # for i in "''${!cmakeFlags[@]}"; do
     #   if [[ "''${cmakeFlags[i]}" == "-DCMAKE_INSTALL_PREFIX=/build/source/build/install" ]]; then
@@ -210,21 +211,24 @@ stdenv.mkDerivation rec {
   cmakeFlags = [
     # (lib.cmakeFeature "LLVM_TARGETS_TO_BUILD" (lib.concatStringsSep ";" llvmTargetsToBuild'))
     # (lib.cmakeFeature "LLVM_ENABLE_PROJECTS" (lib.concatStringsSep ";" llvmProjectsToBuild))
-    # (lib.cmakeFeature "LLVM_HOST_TRIPLE" stdenv.hostPlatform.config)
-    # (lib.cmakeFeature "LLVM_DEFAULT_TARGET_TRIPLE" stdenv.hostPlatform.config)
-    # (lib.cmakeBool "LLVM_INSTALL_UTILS" true)
-    # (lib.cmakeBool "LLVM_INCLUDE_DOCS" (buildDocs || buildMan))
-    # (lib.cmakeBool "MLIR_INCLUDE_DOCS" (buildDocs || buildMan))
-    # (lib.cmakeBool "LLVM_BUILD_DOCS" (buildDocs || buildMan))
+    (lib.cmakeFeature "LLVM_HOST_TRIPLE" stdenv.hostPlatform.config)
+    (lib.cmakeFeature "LLVM_DEFAULT_TARGET_TRIPLE" stdenv.hostPlatform.config)
+    (lib.cmakeBool "LLVM_INSTALL_UTILS" true)
+    (lib.cmakeBool "LLVM_INCLUDE_DOCS" (buildDocs || buildMan))
+    (lib.cmakeBool "MLIR_INCLUDE_DOCS" (buildDocs || buildMan))
+    (lib.cmakeBool "LLVM_BUILD_DOCS" (buildDocs || buildMan))
     # # Way too slow, only uses one core
     # # (lib.cmakeBool "LLVM_ENABLE_DOXYGEN" (buildDocs || buildMan))
-    # (lib.cmakeBool "LLVM_ENABLE_SPHINX" (buildDocs || buildMan))
-    # (lib.cmakeBool "SPHINX_OUTPUT_HTML" buildDocs)
-    # (lib.cmakeBool "SPHINX_OUTPUT_MAN" buildMan)
+    (lib.cmakeBool "LLVM_ENABLE_SPHINX" (buildDocs || buildMan))
+    (lib.cmakeBool "SPHINX_OUTPUT_HTML" buildDocs)
+    (lib.cmakeBool "SPHINX_OUTPUT_MAN" buildMan)
     # (lib.cmakeBool "SPHINX_WARNINGS_AS_ERRORS" false)
-    # (lib.cmakeBool "LLVM_INCLUDE_TESTS" buildTests)
-    # (lib.cmakeBool "MLIR_INCLUDE_TESTS" buildTests)
-    # (lib.cmakeBool "LLVM_BUILD_TESTS" buildTests)
+    (lib.cmakeBool "LLVM_BUILD_TESTS" buildTests)
+    (lib.cmakeBool "LLVM_INCLUDE_TESTS" buildTests)
+    (lib.cmakeBool "MLIR_INCLUDE_TESTS" buildTests)
+    (lib.cmakeBool "SYCL_INCLUDE_TESTS" buildTests)
+
+    (lib.cmakeBool "LLVM_BUILD_LLVM_DYLIB" true)
 
     (lib.cmakeBool "FETCHCONTENT_FULLY_DISCONNECTED" true)
     (lib.cmakeBool "FETCHCONTENT_QUIET" false)
