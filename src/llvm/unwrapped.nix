@@ -230,6 +230,15 @@ stdenv.mkDerivation rec {
 
     (lib.cmakeBool "LLVM_BUILD_LLVM_DYLIB" true)
 
+    #(lib.cmakeBool "CMAKE_INSTALL_RPATH_USE_LINK_PATH" true)
+    (lib.cmakeFeature "CMAKE_INSTALL_RPATH" (
+      lib.makeLibraryPath [
+        stdenv.cc.cc.lib
+        zlib
+        hwloc
+      ]
+    ))
+
     (lib.cmakeBool "FETCHCONTENT_FULLY_DISCONNECTED" true)
     (lib.cmakeBool "FETCHCONTENT_QUIET" false)
 
