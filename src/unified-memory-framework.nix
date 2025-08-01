@@ -15,7 +15,7 @@
   cudaSupport ? false,
   levelZeroSupport ? true,
   ctestCheckHook,
-  buildTests ? false,
+  buildTests ? true,
   python3,
   doxygen,
   sphinx,
@@ -117,9 +117,12 @@ in
         (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_GOOGLEBENCHMARK" "${gbench}")
       ];
 
-    # postConfigure = ''
-    #   cat build.ninja | head 560
-    # '';
+    NIX_LDFLAGS = lib.optionalString buildTests "-rpath ${
+      lib.makeLibraryPath [
+        tbb
+        level-zero
+      ]
+    }";
 
     doCheck = buildTests;
   })
