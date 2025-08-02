@@ -35,10 +35,10 @@
   openclSupport ? true,
   # Broken
   cudaSupport ? false,
-  rocmSupport ? false,
+  rocmSupport ? true,
   rocmGpuTargets ? builtins.concatStringsSep ";" rocmPackages.clr.gpuTargets,
   nativeCpuSupport ? false,
-  vulkanSupport ? false,
+  vulkanSupport ? true,
   useLibcxx ? false,
   useLdd ? false,
   buildTests ? false,

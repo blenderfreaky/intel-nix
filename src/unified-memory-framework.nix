@@ -7,15 +7,19 @@
   level-zero,
   hwloc,
   # jemalloc,
+  autogen,
+  autoconf,
+  automake,
   tbb,
   numactl,
   pkg-config,
   cudaPackages,
   # cudaSupport ? config.cudaSupport
+  useJemalloc ? false,
   cudaSupport ? false,
   levelZeroSupport ? true,
   ctestCheckHook,
-  buildTests ? true,
+  buildTests ? false,
   python3,
   doxygen,
   sphinx,
@@ -64,7 +68,12 @@ in
         tbb
         hwloc
         hwloc.dev
-        # jemalloc
+        jemalloc
+      ]
+      ++ lib.optionals useJemalloc [
+        autogen
+        autoconf
+        automake
       ]
       ++ lib.optionals cudaSupport [
         cudaPackages.cuda_cudart
@@ -85,12 +94,19 @@ in
       sha256 = "sha256-nolnyxnupHDzz92/uFpIJsmEkcvD9MgI0oMX0V8aM1s=";
     };
 
-    postPatch = ''
-      # The CMake tries to find out the version via git.
-      # Since we're not in a clone, git describe won't work.
-      substituteInPlace cmake/helpers.cmake \
-        --replace-fail "git describe --always" "echo ${tag}"
-    '';
+    postPatch =
+      ''
+        # The CMake tries to find out the version via git.
+        # Since we're not in a clone, git describe won't work.
+        substituteInPlace cmake/helpers.cmake \
+          --replace-fail "git describe --always" "echo ${tag}"
+      ''
+      + (lib.optionalString useJemalloc ''
+        # This fixes building with ninja
+        # See https://github.com/oneapi-src/unified-memory-framework/issues/1474
+        substituteInPlace CMakeLists.txt \
+          --replace-fail "\$(nproc)" "\$\$(nproc)"
+      '');
 
     cmakeFlags =
       [
@@ -100,9 +116,7 @@ in
         (lib.cmakeBool "UMF_BUILD_CUDA_PROVIDER" cudaSupport)
         (lib.cmakeBool "UMF_BUILD_LEVEL_ZERO_PROVIDER" levelZeroSupport)
 
-        # Building with jemalloc currently fails
-        # TODO: Fix
-        (lib.cmakeBool "UMF_BUILD_LIBUMF_POOL_JEMALLOC" false)
+        (lib.cmakeBool "UMF_BUILD_LIBUMF_POOL_JEMALLOC" useJemalloc)
 
         (lib.cmakeBool "UMF_BUILD_TESTS" buildTests)
         (lib.cmakeBool "UMF_BUILD_GPU_TESTS" buildTests)
@@ -110,7 +124,7 @@ in
         (lib.cmakeBool "UMF_BUILD_EXAMPLES" buildTests)
         (lib.cmakeBool "UMF_BUILD_GPU_EXAMPLES" buildTests)
 
-        # (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_JEMALLOC_TARG" "${jemalloc}")
+        (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_JEMALLOC_TARG" "${jemalloc}")
       ]
       ++ lib.optionals buildTests [
         (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_GOOGLETEST" "${gtest}")
@@ -121,6 +135,7 @@ in
       lib.makeLibraryPath [
         tbb
         level-zero
+        # jemalloc
       ]
     }";
 
