@@ -32,6 +32,12 @@ llvm.stdenv.mkDerivation {
     oneMath-sycl-blas
   ];
 
+  hardeningDisable = [
+    "zerocallusedregs"
+    "pacret"
+    # "shadowstack"
+  ];
+
   cmakeFlags = [
     # (lib.cmakeFeature "CMAKE_C_COMPILER" "${llvm}/bin/clang")
     # (lib.cmakeFeature "CMAKE_CXX_COMPILER" "${llvm}/bin/clang++")

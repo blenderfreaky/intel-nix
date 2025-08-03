@@ -26,6 +26,7 @@ mkDerivation {
   hardeningDisable = [
     "zerocallusedregs"
     "pacret"
+    # "shadowstack"
   ];
 
   cmakeFlags = [
