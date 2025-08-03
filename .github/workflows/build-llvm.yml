@@ -35,7 +35,7 @@ jobs:
       # Nix-specific logic begins here
       - name: Build LLVM
         run: |
-          nix build --print-build-logs .#src.llvm.llvm-unwrapped
+          nix build --print-build-logs .#src.llvm
 
       - name: Upload a Build Artifact
         uses: actions/upload-artifact@v4.6.2
