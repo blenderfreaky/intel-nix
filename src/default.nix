@@ -8,9 +8,11 @@ rec {
   emhash = callPackage ./emhash.nix { };
   vc-intrinsics = callPackage ./vc-intrinsics.nix { };
 
-  oneMath = callPackage ./onemath.nix { inherit llvm; };
+  oneMath = callPackage ./onemath.nix {
+    inherit llvm oneMath-sycl-blas;
+  };
   oneDNN = callPackage ./onednn.nix { inherit llvm; };
-  generic-sycl-components = callPackage ./generic-sycl-components.nix { inherit llvm; };
+  oneMath-sycl-blas = callPackage ./onemath-sycl-blas.nix { inherit llvm; };
 
   khronos-sycl-cts = callPackage ./khronos-sycl-cts.nix { mkDerivation = llvm.stdenv.mkDerivation; };
 }

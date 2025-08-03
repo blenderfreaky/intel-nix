@@ -5,6 +5,7 @@
   fetchFromGitHub,
   tbb,
   ocl-icd,
+  lib,
 }:
 let
   version = "3.8.1";
