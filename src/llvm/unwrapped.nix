@@ -19,12 +19,10 @@
   libcxx,
   libxml2,
   libedit,
-  # lld,
   llvmPackages_21,
   callPackage,
   spirv-tools,
   intel-compute-runtime,
-  tree, # For testing. TODO: Remove
   # opencl-headers,
   # emhash,
   zlib,
@@ -95,7 +93,6 @@ stdenv.mkDerivation {
   };
 
   nativeBuildInputs = [
-    tree # For testing. TODO: Remove
     cmake
     ninja
     python3
@@ -116,7 +113,7 @@ stdenv.mkDerivation {
     libedit
     hwloc
     intel-compute-runtime
-
+    # TODO: Package separately
     # emhash
   ]
   ++ lib.optionals useLibcxx [
@@ -125,20 +122,10 @@ stdenv.mkDerivation {
   ]
   ++ unified-runtime'.buildInputs;
 
-  # propagatedBuildInputs = [
-  #   stdenv.cc.cc.lib
-  #   hwloc
-  #   zlib
-  # ];
-
   # TODO: Is this needed?
   nativeCheckInputs = lib.optionals buildTests [
     ctestCheckHook
   ];
-
-  # patches = [
-  #   ./buildbot.patch
-  # ];
 
   postPatch = ''
     # The latter is used everywhere except this one file. For some reason,
@@ -207,13 +194,6 @@ stdenv.mkDerivation {
     # NOTE: We prepend, so that flags we set manually override what the build script does.
     eval "prependToVar cmakeFlags $flags"
 
-    # for i in "''${!cmakeFlags[@]}"; do
-    #   if [[ "''${cmakeFlags[i]}" == "-DCMAKE_INSTALL_PREFIX=/build/source/build/install" ]]; then
-    #       unset 'cmakeFlags[i]'
-    #       break
-    #   fi
-    # done
-
     # Remove the install prefix flag
     cmakeFlags=(''${cmakeFlags[@]/-DCMAKE_INSTALL_PREFIX=\/build\/source\/build\/install})
   '';
@@ -242,15 +222,6 @@ stdenv.mkDerivation {
 
     (lib.cmakeBool "LLVM_BUILD_LLVM_DYLIB" true)
 
-    #(lib.cmakeBool "CMAKE_INSTALL_RPATH_USE_LINK_PATH" true)
-    # (lib.cmakeFeature "CMAKE_INSTALL_RPATH" (
-    #   lib.makeLibraryPath [
-    #     stdenv.cc.cc.lib
-    #     zlib
-    #     hwloc
-    #   ]
-    # ))
-
     (lib.cmakeBool "FETCHCONTENT_FULLY_DISCONNECTED" true)
     (lib.cmakeBool "FETCHCONTENT_QUIET" false)
 
@@ -270,42 +241,8 @@ stdenv.mkDerivation {
   # TODO: Can the cc wrapper be made aware of this somehow?
   hardeningDisable = [ "zerocallusedregs" ];
 
-  # buildPhase = ''
-  #   runHook preBuild
-
-  #   # TODO: Is this really needed?
-  #   echo $LD_LIBRARY_PATH
-  #   export LD_LIBRARY_PATH="${
-  #     lib.makeLibraryPath [
-  #       stdenv.cc.cc.lib
-  #       zlib
-  #       hwloc
-  #     ]
-  #   }:/build/source/build/lib"
-
-  #   # python buildbot/compile.py --verbose
-  #   # TODO: replace 12 with $NIX_BUILD_PARALLELISM or whatever the flag was
-  #   cmake --build /build/source/build -- deploy-sycl-toolchain -j 12
-
-  #   runHook postBuild
-  # '';
-
-  # # Despite the RPath setting, this is needed for the build to succeed
-  # # TODO: Investigate why this is needed
-  # env.LD_LIBRARY_PATH = "${
-  #   lib.makeLibraryPath [
-  #     stdenv.cc.cc.lib
-  #     zlib
-  #     hwloc
-  #   ]
-  # }:/build/source/build/lib";
-
   # TODO: Investigate why this is needed
   NIX_LDFLAGS = "-lhwloc";
-
-  # postBuild = ''
-  #   tree /build/source/build
-  # '';
 
   requiredSystemFeatures = [ "big-parallel" ];
   enableParallelBuilding = true;
