@@ -22,9 +22,13 @@ jobs:
             targets: ".#src.llvm.llvm-unwrapped"
             artifact-name: "llvm-build-result"
             needs: []
-          - name: "OneAPI"
-            targets: ".#src.oneDNN .#src.oneMath"
-            artifact-name: "oneapi-build-result"
+          - name: "oneDNN"
+            targets: ".#src.oneDNN"
+            artifact-name: "onednn-build-result"
+            needs: ["llvm"]
+          - name: "oneMath"
+            targets: ".#src.oneMath"
+            artifact-name: "onemath-build-result"
             needs: ["llvm"]
           - name: "Khronos SYCL CTS"
             targets: ".#src.khronos-sycl-cts"
