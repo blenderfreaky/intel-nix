@@ -46,7 +46,8 @@
   buildMan ? false,
 }:
 let
-  version = "nightly-2025-07-18";
+  version = "nightly-2025-08-03";
+  date = "20250803";
   deps = callPackage ./deps.nix { };
   unified-runtime' = unified-runtime.override {
     inherit
@@ -81,15 +82,16 @@ let
     }
   );
 in
-stdenv.mkDerivation rec {
+stdenv.mkDerivation {
   pname = "intel-llvm";
   inherit version;
 
   src = fetchFromGitHub {
     owner = "intel";
     repo = "llvm";
-    tag = "sycl-web/sycl-latest-good";
-    sha256 = "sha256-xbmZOHTi4DMu53GEoqH2JKuGQh8Kd/srqS3+YR0Jvqg=";
+    # tag = "sycl-web/sycl-latest-good";
+    rev = "1af67b1c3056af76ab0427150b13ed1628833fe6";
+    hash = "sha256-T7RHNuluauf/PT3Wq8tZrcx/AaQ/cErD4/PGjrgKzHM=";
   };
 
   nativeBuildInputs = [
@@ -134,9 +136,9 @@ stdenv.mkDerivation rec {
     ctestCheckHook
   ];
 
-  patches = [
-    ./buildbot.patch
-  ];
+  # patches = [
+  #   ./buildbot.patch
+  # ];
 
   postPatch = ''
     # The latter is used everywhere except this one file. For some reason,
@@ -153,9 +155,9 @@ stdenv.mkDerivation rec {
     # Note in case of future build failures: if there are executables in any of the copied folders,
     # we may need to add special handling to set the executable permissions.
     sed -i '/file(COPY / { /NO_SOURCE_PERMISSIONS/! s/)\s*$/ NO_SOURCE_PERMISSIONS)/ }' \
-    unified-runtime/cmake/FetchLevelZero.cmake \
-    sycl/CMakeLists.txt \
-    sycl/cmake/modules/FetchEmhash.cmake
+      unified-runtime/cmake/FetchLevelZero.cmake \
+      sycl/CMakeLists.txt \
+      sycl/cmake/modules/FetchEmhash.cmake
 
     # Parts of libdevice are built using the freshly-built compiler.
     # As it tries to link to system libraries, we need to wrap it with the
@@ -166,6 +168,15 @@ stdenv.mkDerivation rec {
     # Note: both nix and bash try to expand clang_exe here, so double-escape it
     substituteInPlace libdevice/cmake/modules/SYCLLibdevice.cmake \
       --replace-fail "\''${clang_exe}" "${ccWrapperStub}/bin/clang++"
+
+    # Some libraries check for the version of the compiler.
+    # For some reason, this version is determined by the
+    # date of compilation. As the nix sandbox tells CMake
+    # it's running at Unix epoch, this will always result in
+    # a waaaay too old version.
+    # To avoid this, we set the version to a fixed value.
+    substituteInPlace sycl/CMakeLists.txt \
+      --replace-fail 'string(TIMESTAMP __SYCL_COMPILER_VERSION "%Y%m%d")' 'set(__SYCL_COMPILER_VERSION "${date}")'
   '';
 
   preConfigure = ''
