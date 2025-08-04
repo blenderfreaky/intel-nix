@@ -19,7 +19,7 @@ jobs:
       matrix:
         include:
           - name: "LLVM"
-            targets: ".#src.llvm.llvm-unwrapped"
+            targets: ".#src.llvm"
             artifact-name: "llvm-build-result"
             needs: []
           - name: "oneDNN"
@@ -30,6 +30,10 @@ jobs:
             targets: ".#src.oneMath"
             artifact-name: "onemath-build-result"
             needs: ["llvm"]
+          - name: "ggml"
+            targets: ".#src.ggml"
+            artifact-name: "ggml-build-result"
+            needs: ["llvm", "oneMath", "oneDNN"]
           - name: "Khronos SYCL CTS"
             targets: ".#src.khronos-sycl-cts"
             artifact-name: "sycl-cts-build-result"
