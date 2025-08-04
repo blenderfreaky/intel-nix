@@ -1,0 +1,56 @@
+name: Nix Build
+
+# Controls when the workflow will run
+on:
+  # # Triggers the workflow on push or pull request events but only for the "main" branch
+  # push:
+  #   branches: [ "main" ]
+  pull_request:
+    branches: ["main"]
+
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        include:
+          - name: "LLVM"
+            targets: ".#src.llvm.llvm-unwrapped"
+            artifact-name: "llvm-build-result"
+            needs: []
+          - name: "OneAPI"
+            targets: ".#src.oneDNN .#src.oneMath"
+            artifact-name: "oneapi-build-result"
+            needs: ["llvm"]
+          - name: "Khronos SYCL CTS"
+            targets: ".#src.khronos-sycl-cts"
+            artifact-name: "sycl-cts-build-result"
+            needs: ["llvm"]
+
+    steps:
+      - name: git checkout
+        uses: actions/checkout@v3
+
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@main
+
+      - uses: DeterminateSystems/magic-nix-cache-action@main
+
+      - name: Check Nixpkgs inputs
+        uses: DeterminateSystems/flake-checker-action@main
+        with:
+          fail-mode: true
+
+      - name: Build ${{ matrix.name }}
+        run: |
+          nix build --print-build-logs ${{ matrix.targets }}
+
+      - name: Upload Build Artifact
+        uses: actions/upload-artifact@v4.6.2
+        with:
+          name: ${{ matrix.artifact-name }}
+          path: result/
