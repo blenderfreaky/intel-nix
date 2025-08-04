@@ -4,6 +4,8 @@
   cmake,
   ninja,
   lib,
+  # INTEL_GPU, NVIDIA_GPU, AMD_GPU
+  gpuTarget ? "DEFAULT",
 }:
 llvm.stdenv.mkDerivation (finalAttrs: {
   # TODO: Figure out how to name this for nix
@@ -23,11 +25,9 @@ llvm.stdenv.mkDerivation (finalAttrs: {
     ninja
   ];
 
-  # cmakeDir = "onemath/sycl/blas";
   sourceRoot = "${finalAttrs.src.name}/onemath/sycl/blas";
 
   cmakeFlags = [
-    # TODO: INTEL_GPU, NVIDIA_GPU, AMD_GPU
-    (lib.cmakeFeature "TUNING_TARGET" "DEFAULT")
+    (lib.cmakeFeature "TUNING_TARGET" gpuTarget)
   ];
 })

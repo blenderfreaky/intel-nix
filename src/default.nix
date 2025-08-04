@@ -15,4 +15,7 @@ rec {
   oneMath-sycl-blas = callPackage ./onemath-sycl-blas.nix { inherit llvm; };
 
   khronos-sycl-cts = callPackage ./khronos-sycl-cts.nix { mkDerivation = llvm.stdenv.mkDerivation; };
+
+  # Unrelated to Intel, just for testing as it should hit most common use cases
+  ggml = callPackage ./ggml.nix { inherit llvm oneDNN oneMath; };
 }

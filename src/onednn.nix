@@ -3,8 +3,9 @@
   cmake,
   ninja,
   fetchFromGitHub,
-  tbb,
+  tbb_2022,
   ocl-icd,
+  gcc,
   lib,
 }:
 let
@@ -27,9 +28,21 @@ llvm.stdenv.mkDerivation {
   ];
 
   buildInputs = [
-    tbb
+    tbb_2022
     ocl-icd
     llvm.baseLlvm.openmp
+    gcc
+  ];
+
+  hardeningDisable = [
+    "zerocallusedregs"
+    "pacret"
+    # "shadowstack"
+  ];
+
+  cmakeFlags = [
+    (lib.cmakeFeature "ONEDNN_CPU_RUNTIME" "SYCL")
+    (lib.cmakeFeature "ONEDNN_GPU_RUNTIME" "SYCL")
   ];
 
 }
