@@ -5,6 +5,8 @@
   ninja,
   oneDNN,
   oneMath,
+  tbb_2022,
+  mkl,
 }:
 llvm.stdenv.mkDerivation {
   pname = "ggml";
@@ -26,6 +28,8 @@ llvm.stdenv.mkDerivation {
   buildInputs = [
     oneDNN
     oneMath
+    tbb_2022
+    mkl
   ];
 
   hardeningDisable = [
