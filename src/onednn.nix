@@ -33,6 +33,12 @@ in
       gcc
     ];
 
+    # Fixup bad cmake paths
+    postInstall = ''
+      substituteInPlace $out/lib/cmake/dnnl/dnnl-config.cmake \
+        --replace "\''${PACKAGE_PREFIX_DIR}/" ""
+    '';
+
     hardeningDisable = [
       "zerocallusedregs"
       "pacret"
