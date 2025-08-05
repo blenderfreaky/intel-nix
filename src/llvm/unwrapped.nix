@@ -89,6 +89,13 @@ in
       hash = "sha256-T7RHNuluauf/PT3Wq8tZrcx/AaQ/cErD4/PGjrgKzHM=";
     };
 
+    outputs = [
+      "out"
+      "lib"
+      "dev"
+      "rsrc"
+    ];
+
     nativeBuildInputs =
       [
         cmake
@@ -129,6 +136,7 @@ in
     postPatch = ''
       # The latter is used everywhere except this one file. For some reason,
       # the former is not set, at least when building with Nix, so we replace it.
+      # See also: github.com/intel/llvm/pull/19637
       substituteInPlace unified-runtime/cmake/helpers.cmake \
         --replace-fail "PYTHON_EXECUTABLE" "Python3_EXECUTABLE"
 
@@ -140,6 +148,7 @@ in
       # By setting NO_SOURCE_PERMISSIONS we side-step this issue.
       # Note in case of future build failures: if there are executables in any of the copied folders,
       # we may need to add special handling to set the executable permissions.
+      # See also: https://github.com/intel/llvm/issues/19635#issuecomment-3134830708
       sed -i '/file(COPY / { /NO_SOURCE_PERMISSIONS/! s/)\s*$/ NO_SOURCE_PERMISSIONS)/ }' \
         unified-runtime/cmake/FetchLevelZero.cmake \
         sycl/CMakeLists.txt \
@@ -161,6 +170,7 @@ in
       # it's running at Unix epoch, this will always result in
       # a waaaay too old version.
       # To avoid this, we set the version to a fixed value.
+      # See also: https://github.com/intel/llvm/issues/19692
       substituteInPlace sycl/CMakeLists.txt \
         --replace-fail 'string(TIMESTAMP __SYCL_COMPILER_VERSION "%Y%m%d")' 'set(__SYCL_COMPILER_VERSION "${date}")'
     '';

@@ -67,9 +67,9 @@ in
         oneTBB
         hwloc
         hwloc.dev
-        jemalloc
       ]
       ++ lib.optionals useJemalloc [
+        jemalloc
         autogen
         autoconf
         automake
