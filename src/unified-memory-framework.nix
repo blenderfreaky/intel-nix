@@ -10,11 +10,10 @@
   autogen,
   autoconf,
   automake,
-  tbb,
+  oneTBB,
   numactl,
   pkg-config,
   cudaPackages,
-  # cudaSupport ? config.cudaSupport
   useJemalloc ? false,
   cudaSupport ? false,
   levelZeroSupport ? true,
@@ -24,7 +23,8 @@
   doxygen,
   sphinx,
   buildDocs ? true,
-}: let
+}:
+let
   version = "1.0.0";
   tag = "v${version}";
   gtest = fetchFromGitHub {
@@ -46,98 +46,96 @@
     sha256 = "sha256-bb0OhZVXyvN+hf9BpPSykn5cGm87a0C+Y/iXKt9wTSs=";
   };
 in
-  stdenv.mkDerivation (finalAttrs: {
-    name = "unified-memory-framework";
-    inherit version;
+stdenv.mkDerivation (finalAttrs: {
+  name = "unified-memory-framework";
+  inherit version;
 
-    nativeBuildInputs =
-      [
-        cmake
-        ninja
-        pkg-config
-      ]
-      ++ lib.optionals buildDocs [
-        python3
-        doxygen
-        sphinx
-      ];
+  nativeBuildInputs = [
+    cmake
+    ninja
+    pkg-config
+  ]
+  ++ lib.optionals buildDocs [
+    python3
+    doxygen
+    sphinx
+  ];
 
-    buildInputs =
-      [
-        level-zero
-        tbb
-        hwloc
-        hwloc.dev
-        jemalloc
-      ]
-      ++ lib.optionals useJemalloc [
-        autogen
-        autoconf
-        automake
-      ]
-      ++ lib.optionals cudaSupport [
-        cudaPackages.cuda_cudart
-      ]
-      ++ lib.optionals buildTests [
-        numactl
-      ];
+  buildInputs = [
+    level-zero
+    oneTBB
+    hwloc
+    hwloc.dev
+    jemalloc
+  ]
+  ++ lib.optionals useJemalloc [
+    autogen
+    autoconf
+    automake
+  ]
+  ++ lib.optionals cudaSupport [
+    cudaPackages.cuda_cudart
+  ]
+  ++ lib.optionals buildTests [
+    numactl
+  ];
 
-    # TODO: Is this needed?
-    nativeCheckInputs = lib.optionals buildTests [
-      ctestCheckHook
-    ];
+  # TODO: Is this needed?
+  nativeCheckInputs = lib.optionals buildTests [
+    ctestCheckHook
+  ];
 
-    src = fetchFromGitHub {
-      owner = "oneapi-src";
-      repo = "unified-memory-framework";
-      inherit tag;
-      sha256 = "sha256-nolnyxnupHDzz92/uFpIJsmEkcvD9MgI0oMX0V8aM1s=";
-    };
+  src = fetchFromGitHub {
+    owner = "oneapi-src";
+    repo = "unified-memory-framework";
+    inherit tag;
+    sha256 = "sha256-nolnyxnupHDzz92/uFpIJsmEkcvD9MgI0oMX0V8aM1s=";
+  };
 
-    postPatch =
-      ''
-        # The CMake tries to find out the version via git.
-        # Since we're not in a clone, git describe won't work.
-        substituteInPlace cmake/helpers.cmake \
-          --replace-fail "git describe --always" "echo ${tag}"
-      ''
-      + (lib.optionalString useJemalloc ''
-        # This fixes building with ninja
-        # See https://github.com/oneapi-src/unified-memory-framework/issues/1474
-        substituteInPlace CMakeLists.txt \
-          --replace-fail "\$(nproc)" "\$\$(nproc)"
-      '');
+  postPatch = ''
+    # The CMake tries to find out the version via git.
+    # Since we're not in a clone, git describe won't work.
+    substituteInPlace cmake/helpers.cmake \
+      --replace-fail "git describe --always" "echo ${tag}"
+  ''
+  + (lib.optionalString useJemalloc ''
+    # This fixes building with ninja
+    # See https://github.com/oneapi-src/unified-memory-framework/issues/1474
+    substituteInPlace CMakeLists.txt \
+      --replace-fail "\$(nproc)" "\$\$(nproc)"
+  '');
 
-    cmakeFlags =
-      [
-        (lib.cmakeBool "FETCHCONTENT_FULLY_DISCONNECTED" true)
-        (lib.cmakeBool "FETCHCONTENT_QUIET" false)
+  cmakeFlags = [
+    (lib.cmakeBool "FETCHCONTENT_FULLY_DISCONNECTED" true)
+    (lib.cmakeBool "FETCHCONTENT_QUIET" false)
 
-        (lib.cmakeBool "UMF_BUILD_CUDA_PROVIDER" cudaSupport)
-        (lib.cmakeBool "UMF_BUILD_LEVEL_ZERO_PROVIDER" levelZeroSupport)
+    (lib.cmakeBool "UMF_BUILD_CUDA_PROVIDER" cudaSupport)
+    (lib.cmakeBool "UMF_BUILD_LEVEL_ZERO_PROVIDER" levelZeroSupport)
 
-        (lib.cmakeBool "UMF_BUILD_LIBUMF_POOL_JEMALLOC" useJemalloc)
+    (lib.cmakeBool "UMF_BUILD_LIBUMF_POOL_JEMALLOC" useJemalloc)
 
-        (lib.cmakeBool "UMF_BUILD_TESTS" buildTests)
-        (lib.cmakeBool "UMF_BUILD_GPU_TESTS" buildTests)
-        (lib.cmakeBool "UMF_BUILD_BENCHMARKS" buildTests)
-        (lib.cmakeBool "UMF_BUILD_EXAMPLES" buildTests)
-        (lib.cmakeBool "UMF_BUILD_GPU_EXAMPLES" buildTests)
+    (lib.cmakeBool "UMF_BUILD_TESTS" buildTests)
+    (lib.cmakeBool "UMF_BUILD_GPU_TESTS" buildTests)
+    (lib.cmakeBool "UMF_BUILD_BENCHMARKS" buildTests)
+    (lib.cmakeBool "UMF_BUILD_EXAMPLES" buildTests)
+    (lib.cmakeBool "UMF_BUILD_GPU_EXAMPLES" buildTests)
 
-        (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_JEMALLOC_TARG" "${jemalloc}")
-      ]
-      ++ lib.optionals buildTests [
-        (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_GOOGLETEST" "${gtest}")
-        (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_GOOGLEBENCHMARK" "${gbench}")
-      ];
+    (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_JEMALLOC_TARG" "${jemalloc}")
+  ]
+  ++ lib.optionals buildTests [
+    (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_GOOGLETEST" "${gtest}")
+    (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_GOOGLEBENCHMARK" "${gbench}")
+  ];
 
-    NIX_LDFLAGS = lib.optionalString buildTests "-rpath ${
-      lib.makeLibraryPath [
-        tbb
-        level-zero
-        # jemalloc
-      ]
-    }";
+  NIX_LDFLAGS = lib.optionalString buildTests "-rpath ${
+    lib.makeLibraryPath [
+      oneTBB
+      level-zero
+    ]
+    ++ lib.optionals useJemalloc [
+      jemalloc
+    ]
+  }";
 
-    doCheck = buildTests;
-  })
+  doCheck = buildTests;
+})

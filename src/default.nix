@@ -1,21 +1,46 @@
-{ callPackage }:
-rec {
-  llvm = callPackage ./llvm { inherit unified-runtime; };
+{callPackage}: rec {
+  llvm = callPackage ./llvm {inherit unified-runtime;};
 
-  unified-runtime = callPackage ./unified-runtime.nix { inherit unified-memory-framework; };
-  unified-memory-framework = callPackage ./unified-memory-framework.nix { };
+  unified-runtime = callPackage ./unified-runtime.nix {inherit unified-memory-framework;};
+  unified-memory-framework = callPackage ./unified-memory-framework.nix {};
 
-  emhash = callPackage ./emhash.nix { };
-  vc-intrinsics = callPackage ./vc-intrinsics.nix { };
+  emhash = callPackage ./emhash.nix {};
+  vc-intrinsics = callPackage ./vc-intrinsics.nix {};
 
+  oneMath-sycl-blas = callPackage ./onemath-sycl-blas.nix {inherit llvm;};
   oneMath = callPackage ./onemath.nix {
     inherit llvm oneMath-sycl-blas;
   };
-  oneDNN = callPackage ./onednn.nix { inherit llvm; };
-  oneMath-sycl-blas = callPackage ./onemath-sycl-blas.nix { inherit llvm; };
+  oneDNN = callPackage ./onednn.nix {inherit llvm;};
+  oneTBB = callPackage ./onetbb.nix {
+    #inherit llvm;
+  };
 
-  khronos-sycl-cts = callPackage ./khronos-sycl-cts.nix { mkDerivation = llvm.stdenv.mkDerivation; };
+  khronos-sycl-cts = callPackage ./khronos-sycl-cts.nix {mkDerivation = llvm.stdenv.mkDerivation;};
 
   # Unrelated to Intel, just for testing as it should hit most common use cases
-  ggml = callPackage ./ggml.nix { inherit llvm oneDNN oneMath; };
+  ggml = callPackage ./ggml/ggml.nix {
+    inherit
+      llvm
+      oneDNN
+      oneMath
+      oneTBB
+      ;
+  };
+  whisper-cpp = callPackage ./ggml/whisper-cpp.nix {
+    inherit
+      llvm
+      oneDNN
+      oneMath
+      oneTBB
+      ;
+  };
+  llama-cpp = callPackage ./ggml/llama-cpp.nix {
+    inherit
+      llvm
+      oneDNN
+      oneMath
+      oneTBB
+      ;
+  };
 }

@@ -5,8 +5,11 @@
   ninja,
   oneDNN,
   oneMath,
-  tbb_2022,
+  oneTBB,
   mkl,
+  git,
+  opencl-headers,
+  ocl-icd,
 }:
 llvm.stdenv.mkDerivation {
   pname = "ggml";
@@ -23,13 +26,16 @@ llvm.stdenv.mkDerivation {
   nativeBuildInputs = [
     cmake
     ninja
+    git
   ];
 
   buildInputs = [
     oneDNN
     oneMath
-    tbb_2022
+    oneTBB
     mkl
+    opencl-headers
+    ocl-icd
   ];
 
   hardeningDisable = [

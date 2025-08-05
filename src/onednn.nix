@@ -3,7 +3,7 @@
   cmake,
   ninja,
   fetchFromGitHub,
-  tbb_2022,
+  oneTBB,
   ocl-icd,
   gcc,
   lib,
@@ -28,7 +28,7 @@ llvm.stdenv.mkDerivation {
   ];
 
   buildInputs = [
-    tbb_2022
+    oneTBB
     ocl-icd
     llvm.baseLlvm.openmp
     gcc
@@ -44,5 +44,4 @@ llvm.stdenv.mkDerivation {
     (lib.cmakeFeature "ONEDNN_CPU_RUNTIME" "SYCL")
     (lib.cmakeFeature "ONEDNN_GPU_RUNTIME" "SYCL")
   ];
-
 }
