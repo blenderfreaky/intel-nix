@@ -22,6 +22,7 @@
   llvmPackages_21,
   callPackage,
   spirv-tools,
+  spirv-headers,
   intel-compute-runtime,
   # opencl-headers,
   # emhash,
@@ -85,8 +86,8 @@ in
       owner = "intel";
       repo = "llvm";
       # tag = "sycl-web/sycl-latest-good";
-      rev = "1af67b1c3056af76ab0427150b13ed1628833fe6";
-      hash = "sha256-T7RHNuluauf/PT3Wq8tZrcx/AaQ/cErD4/PGjrgKzHM=";
+      rev = "542a00b45276bd9a24ba85c041b0d5535a896593";
+      hash = "sha256-d6HdVeEZR0Ydl9JgdZTUtMwJ++SgzFjN39/c6Fi6ha0=";
     };
 
     # I'd like to split outputs, but currently this fails
@@ -114,6 +115,7 @@ in
         sphinx
         doxygen
         spirv-tools
+        spirv-headers
         libxml2
         valgrind.dev
         zlib
@@ -237,13 +239,16 @@ in
         (lib.cmakeBool "FETCHCONTENT_QUIET" false)
 
         (lib.cmakeFeature "LLVMGenXIntrinsics_SOURCE_DIR" "${deps.vc-intrinsics}")
-        (lib.cmakeFeature "LLVM_EXTERNAL_SPIRV_HEADERS_SOURCE_DIR" "${deps.spirv-headers}")
+        (lib.cmakeFeature "LLVM_EXTERNAL_SPIRV_HEADERS_SOURCE_DIR" "${spirv-headers}")
 
         (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_EMHASH" "${deps.emhash}")
         (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_PARALLEL-HASHMAP" "${deps.parallel-hashmap}")
-        # (lib.cmakeFeature "OpenCL_HEADERS" "${opencl-headers}/include")
+
+        # These can be switched over to nixpkgs versions once they're updated
+        # See: https://github.com/NixOS/nixpkgs/pull/428558
         (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_OCL-HEADERS" "${deps.opencl-headers}")
         (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_OCL-ICD" "${deps.opencl-icd-loader}")
+
         (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_ONEAPI-CK" "${deps.oneapi-ck}")
       ]
       ++ unified-runtime'.cmakeFlags;

@@ -153,7 +153,6 @@
           (lib.cmakeBool "UR_ENABLE_LATENCY_HISTOGRAM" false)
           # (lib.cmakeBool "UR_ENABLE_LATENCY_HISTOGRAM" true)
 
-          (lib.cmakeFeature "UR_OPENCL_INCLUDE_DIR" "${lib.getInclude opencl-headers}/include")
           (lib.cmakeBool "UR_COMPUTE_RUNTIME_FETCH_REPO" false)
           (lib.cmakeFeature "UR_COMPUTE_RUNTIME_REPO" "${compute-runtime}")
 
