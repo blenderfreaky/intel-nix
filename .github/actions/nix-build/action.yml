@@ -37,7 +37,7 @@ runs:
       if: ${{ inputs.free == false }}
       env:
         NIXPKGS_ALLOW_UNFREE: 1
-      run: nix build --impure --print-build-logs .#${{ inputs.component }}build --print-build-logs .#${{ inputs.component }}
+      run: nix build --impure --print-build-logs .#${{ inputs.component }}
 
     - name: Upload Build Artifact
       uses: actions/upload-artifact@v4.6.2
