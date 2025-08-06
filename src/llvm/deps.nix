@@ -16,7 +16,7 @@
     repo = "SPIRV-Headers";
     # See llvm-spirv/spirv-headers-tag.conf
     rev = "9e3836d7d6023843a72ecd3fbf3f09b1b6747a9e";
-    sha256 = "sha256-/KfUxWDczLQ/0DOiFC4Z66o+gtoF/7vgvAvKyv9Z9OA=";
+    sha256 = "sha256-N8NBAkkpOcbgap4loPJJW6E5bjG+TixCh/HN259RyjI=";
   };
 
   oneapi-ck = fetchFromGitHub {
