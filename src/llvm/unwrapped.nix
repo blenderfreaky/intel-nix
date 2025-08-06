@@ -44,8 +44,8 @@
   buildDocs ? false,
   buildMan ? false,
 }: let
-  version = "nightly-2025-08-03";
-  date = "20250803";
+  version = "nightly-2025-08-05";
+  date = "20250805";
   deps = callPackage ./deps.nix {};
   unified-runtime' = unified-runtime.override {
     inherit
