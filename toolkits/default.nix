@@ -5,5 +5,5 @@
     gdbm_1_13 = callPackage ./deps/gdbm_1_13.nix {};
   };
 
-  installer = callPackage ./installer deps;
+  installer = callPackage ./installer {inherit deps;};
 }
