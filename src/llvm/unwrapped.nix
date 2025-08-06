@@ -22,7 +22,6 @@
   llvmPackages_21,
   callPackage,
   spirv-tools,
-  spirv-headers,
   intel-compute-runtime,
   # opencl-headers,
   # emhash,
@@ -115,7 +114,6 @@ in
         sphinx
         doxygen
         spirv-tools
-        spirv-headers
         libxml2
         valgrind.dev
         zlib
@@ -239,7 +237,8 @@ in
         (lib.cmakeBool "FETCHCONTENT_QUIET" false)
 
         (lib.cmakeFeature "LLVMGenXIntrinsics_SOURCE_DIR" "${deps.vc-intrinsics}")
-        (lib.cmakeFeature "LLVM_EXTERNAL_SPIRV_HEADERS_SOURCE_DIR" "${spirv-headers}")
+        # We need the actual source code here, so we can't use the nix derivation
+        (lib.cmakeFeature "LLVM_EXTERNAL_SPIRV_HEADERS_SOURCE_DIR" "${deps.spirv-headers}")
 
         (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_EMHASH" "${deps.emhash}")
         (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_PARALLEL-HASHMAP" "${deps.parallel-hashmap}")

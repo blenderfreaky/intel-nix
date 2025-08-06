@@ -15,7 +15,7 @@
     owner = "KhronosGroup";
     repo = "SPIRV-Headers";
     # See llvm-spirv/spirv-headers-tag.conf
-    rev = "c9aad99f9276817f18f72a4696239237c83cb775";
+    rev = "9e3836d7d6023843a72ecd3fbf3f09b1b6747a9e";
     sha256 = "sha256-/KfUxWDczLQ/0DOiFC4Z66o+gtoF/7vgvAvKyv9Z9OA=";
   };
 
