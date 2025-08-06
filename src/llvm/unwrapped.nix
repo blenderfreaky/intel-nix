@@ -89,12 +89,13 @@ in
       hash = "sha256-T7RHNuluauf/PT3Wq8tZrcx/AaQ/cErD4/PGjrgKzHM=";
     };
 
-    outputs = [
-      "out"
-      "lib"
-      "dev"
-      "rsrc"
-    ];
+    # I'd like to split outputs, but currently this fails
+    # outputs = [
+    #   "out"
+    #   "lib"
+    #   "dev"
+    #   "rsrc"
+    # ];
 
     nativeBuildInputs =
       [
