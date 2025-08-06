@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: git checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - uses: ./.github/actions/nix-build
         with:
           component: src.llvm
@@ -30,7 +30,7 @@ jobs:
         component: [oneDNN, oneMath]
     steps:
       - name: git checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - uses: ./.github/actions/nix-build
         with:
           component: src.${{ matrix.component }}
@@ -41,7 +41,7 @@ jobs:
     needs: llvm
     steps:
       - name: git checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - uses: ./.github/actions/nix-build
         with:
           component: src.khronos-sycl-cts
@@ -50,10 +50,13 @@ jobs:
   ggml:
     runs-on: ubuntu-latest
     needs: oneapi-src
+    strategy:
+      matrix:
+        component: [ggml, whisper-cpp, llama-cpp]
     steps:
       - name: git checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - uses: ./.github/actions/nix-build
         with:
-          component: src.ggml
-          display-name: GGML
+          component: src.${{ matrix.component }}
+          display-name: ${{ matrix.component }}
