@@ -1,9 +1,12 @@
 {
+  lib,
   fetchFromGitHub,
   mkDerivation,
   python3,
   cmake,
   ninja,
+  rocmPackages ? { },
+  target ? "intel",
 }:
 mkDerivation {
   pname = "khronos-sycl-cts";
@@ -23,14 +26,24 @@ mkDerivation {
     ninja
   ];
 
-  hardeningDisable = [
-    "zerocallusedregs"
-    "pacret"
-    # "shadowstack"
-  ];
+  # hardeningDisable = [
+  #   "zerocallusedregs"
+  #   "pacret"
+  #   # "shadowstack"
+  # ];
+
+  hardeningDisable = [ "all" ];
 
   cmakeFlags = [
     # TODO: Make parameter
-    "-DSYCL_IMPLEMENTATION=DPCPP"
-  ];
+    (lib.cmakeFeature "SYCL_IMPLEMENTATION" "DPCPP")
+  ]
+  ++ lib.optional (target == "amd") (lib.cmakeFeature "DPCPP_TARGET_TRIPLES" "amdgcn-amd-amdhsa");
+
+  # We need to set this via the shell because it contains spaces
+  preConfigure = lib.optionalString (target == "amd") ''
+    cmakeFlagsArray+=(
+      "-DDPCPP_FLAGS=-Xsycl-target-backend;--offload-arch=gfx1030;--rocm-path=${rocmPackages.clr};--rocm-device-lib-path=${rocmPackages.rocm-device-libs}/amdgcn/bitcode"
+    )
+  '';
 }
