@@ -1,9 +1,11 @@
 {callPackage}: rec {
   llvm = callPackage ./llvm {inherit unified-runtime;};
+  llvm-alt = callPackage ./llvm/alt.nix {inherit unified-runtime vc-intrinsics;};
 
   unified-runtime = callPackage ./unified-runtime.nix {inherit unified-memory-framework;};
   unified-memory-framework = callPackage ./unified-memory-framework.nix {inherit oneTBB;};
 
+  hdr-histogram = callPackage ./hdr-histogram.nix {};
   emhash = callPackage ./emhash.nix {};
   vc-intrinsics = callPackage ./vc-intrinsics.nix {};
 
