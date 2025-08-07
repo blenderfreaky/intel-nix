@@ -6,7 +6,6 @@
   ninja,
   level-zero,
   hwloc,
-  # jemalloc,
   autogen,
   autoconf,
   automake,
@@ -19,6 +18,8 @@
   levelZeroSupport ? true,
   ctestCheckHook,
   buildTests ? false,
+  gtest,
+  gbenchmark,
   python3,
   doxygen,
   sphinx,
@@ -26,18 +27,8 @@
 }: let
   version = "1.0.0";
   tag = "v${version}";
-  gtest = fetchFromGitHub {
-    owner = "google";
-    repo = "googletest";
-    tag = "v1.15.2";
-    sha256 = "sha256-1OJ2SeSscRBNr7zZ/a8bJGIqAnhkg45re0j3DtPfcXM=";
-  };
-  gbench = fetchFromGitHub {
-    owner = "google";
-    repo = "benchmark";
-    tag = "v1.9.0";
-    sha256 = "sha256-5cl1PIjhXaL58kSyWZXRWLq6BITS2BwEovPhwvk2e18=";
-  };
+  # This needs to be vendored, as they don't support using a pre-built version
+  # and they compile with specific flags that the nixpkgs version doesn't set
   jemalloc = fetchFromGitHub {
     owner = "jemalloc";
     repo = "jemalloc";
@@ -79,6 +70,8 @@ in
       ]
       ++ lib.optionals buildTests [
         numactl
+        gtest
+        gbenchmark
       ];
 
     # TODO: Is this needed?
@@ -107,36 +100,28 @@ in
           --replace-fail "\$(nproc)" "\$\$(nproc)"
       '');
 
-    cmakeFlags =
-      [
-        (lib.cmakeBool "FETCHCONTENT_FULLY_DISCONNECTED" true)
-        (lib.cmakeBool "FETCHCONTENT_QUIET" false)
+    cmakeFlags = [
+      (lib.cmakeBool "FETCHCONTENT_FULLY_DISCONNECTED" true)
+      (lib.cmakeBool "FETCHCONTENT_QUIET" false)
 
-        (lib.cmakeBool "UMF_BUILD_CUDA_PROVIDER" cudaSupport)
-        (lib.cmakeBool "UMF_BUILD_LEVEL_ZERO_PROVIDER" levelZeroSupport)
+      (lib.cmakeBool "UMF_BUILD_CUDA_PROVIDER" cudaSupport)
+      (lib.cmakeBool "UMF_BUILD_LEVEL_ZERO_PROVIDER" levelZeroSupport)
 
-        (lib.cmakeBool "UMF_BUILD_LIBUMF_POOL_JEMALLOC" useJemalloc)
+      (lib.cmakeBool "UMF_BUILD_LIBUMF_POOL_JEMALLOC" useJemalloc)
 
-        (lib.cmakeBool "UMF_BUILD_TESTS" buildTests)
-        (lib.cmakeBool "UMF_BUILD_GPU_TESTS" buildTests)
-        (lib.cmakeBool "UMF_BUILD_BENCHMARKS" buildTests)
-        (lib.cmakeBool "UMF_BUILD_EXAMPLES" buildTests)
-        (lib.cmakeBool "UMF_BUILD_GPU_EXAMPLES" buildTests)
+      (lib.cmakeBool "UMF_BUILD_TESTS" buildTests)
+      (lib.cmakeBool "UMF_BUILD_GPU_TESTS" buildTests)
+      (lib.cmakeBool "UMF_BUILD_BENCHMARKS" buildTests)
+      (lib.cmakeBool "UMF_BUILD_EXAMPLES" buildTests)
+      (lib.cmakeBool "UMF_BUILD_GPU_EXAMPLES" buildTests)
 
-        (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_JEMALLOC_TARG" "${jemalloc}")
-      ]
-      ++ lib.optionals buildTests [
-        (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_GOOGLETEST" "${gtest}")
-        (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_GOOGLEBENCHMARK" "${gbench}")
-      ];
+      (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_JEMALLOC_TARG" "${jemalloc}")
+    ];
 
     NIX_LDFLAGS = lib.optionalString buildTests "-rpath ${
       lib.makeLibraryPath [
         oneTBB
         level-zero
-      ]
-      ++ lib.optionals useJemalloc [
-        jemalloc
       ]
     }";
 
