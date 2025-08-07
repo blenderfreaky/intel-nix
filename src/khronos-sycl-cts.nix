@@ -5,7 +5,7 @@
   python3,
   cmake,
   ninja,
-  rocmPackages ? { },
+  rocmPackages ? {},
   target ? "intel",
 }:
 mkDerivation {
@@ -32,13 +32,14 @@ mkDerivation {
   #   # "shadowstack"
   # ];
 
-  hardeningDisable = [ "all" ];
+  hardeningDisable = ["all"];
 
-  cmakeFlags = [
-    # TODO: Make parameter
-    (lib.cmakeFeature "SYCL_IMPLEMENTATION" "DPCPP")
-  ]
-  ++ lib.optional (target == "amd") (lib.cmakeFeature "DPCPP_TARGET_TRIPLES" "amdgcn-amd-amdhsa");
+  cmakeFlags =
+    [
+      # TODO: Make parameter
+      (lib.cmakeFeature "SYCL_IMPLEMENTATION" "DPCPP")
+    ]
+    ++ lib.optional (target == "amd") (lib.cmakeFeature "DPCPP_TARGET_TRIPLES" "amdgcn-amd-amdhsa");
 
   # We need to set this via the shell because it contains spaces
   preConfigure = lib.optionalString (target == "amd") ''

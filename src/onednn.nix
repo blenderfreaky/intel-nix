@@ -36,13 +36,14 @@ in
     # Fixup bad cmake paths
     postInstall = ''
       substituteInPlace $out/lib/cmake/dnnl/dnnl-config.cmake \
-        --replace "\''${PACKAGE_PREFIX_DIR}/" ""
+        --replace-fail "\''${PACKAGE_PREFIX_DIR}/" ""
     '';
 
     hardeningDisable = [
       "zerocallusedregs"
       "pacret"
-      # "shadowstack"
+      # NOTE: Only produces warnings, so could be re-enabled
+      "shadowstack"
     ];
 
     cmakeFlags = [
