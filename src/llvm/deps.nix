@@ -1,5 +1,4 @@
-{ fetchFromGitHub }:
-{
+{fetchFromGitHub}: {
   vc-intrinsics = fetchFromGitHub {
     owner = "intel";
     repo = "vc-intrinsics";

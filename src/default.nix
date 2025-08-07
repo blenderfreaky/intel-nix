@@ -18,6 +18,8 @@
     #inherit llvm;
   };
 
+  oneapi-ck = callPackage ./oneapi-ck.nix {};
+
   khronos-sycl-cts = callPackage ./khronos-sycl-cts.nix {mkDerivation = llvm.stdenv.mkDerivation;};
 
   # Unrelated to Intel, just for testing as it should hit most common use cases
