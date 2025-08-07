@@ -1,6 +1,20 @@
-{callPackage}: rec {
+{
+  lib,
+  callPackage,
+  # llvmPackages_11,
+  llvmPackages_14,
+  llvmPackages_15,
+  llvmPackages_16,
+  llvmPackages_17,
+  llvmPackages_18,
+  llvmPackages_19,
+  llvmPackages_20,
+  llvmPackages_21,
+}: rec {
   llvm = callPackage ./llvm {inherit unified-runtime;};
-  llvm-alt = callPackage ./llvm/alt.nix {inherit unified-runtime vc-intrinsics;};
+  llvm-alt = callPackage ./llvm/alt.nix {
+    inherit unified-runtime vc-intrinsics spirv-llvm-translator;
+  };
 
   unified-runtime = callPackage ./unified-runtime.nix {inherit unified-memory-framework;};
   unified-memory-framework = callPackage ./unified-memory-framework.nix {inherit oneTBB;};
@@ -17,6 +31,27 @@
   oneTBB = callPackage ./onetbb.nix {
     #inherit llvm;
   };
+
+  spirv-llvm-translator = callPackage ./spirv-llvm-translator.nix {};
+  spirv-llvm-translator-test =
+    lib.mapAttrs
+    (
+      _name: llvmPkg:
+        spirv-llvm-translator.override {
+          inherit (llvmPkg) llvm;
+        }
+    )
+    {
+      # llvmPackages_11
+      "14" = llvmPackages_14;
+      "15" = llvmPackages_15;
+      "16" = llvmPackages_16;
+      "17" = llvmPackages_17;
+      "18" = llvmPackages_18;
+      "19" = llvmPackages_19;
+      "20" = llvmPackages_20;
+      "21" = llvmPackages_21;
+    };
 
   oneapi-ck = callPackage ./oneapi-ck.nix {};
 

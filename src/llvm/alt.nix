@@ -9,6 +9,7 @@
   hwloc,
   spirv-llvm-translator,
   spirv-tools,
+  spirv-headers,
   vc-intrinsics,
   intel-compute-runtime,
   # TODO: llvmPackages.libcxx? libcxxStdenv?
@@ -51,11 +52,15 @@
     rev = "542a00b45276bd9a24ba85c041b0d5535a896593";
     hash = "sha256-d6HdVeEZR0Ydl9JgdZTUtMwJ++SgzFjN39/c6Fi6ha0=";
   };
+  llvmPackages = llvmPackages_21;
+  spirv-llvm-translator' = spirv-llvm-translator.override {
+    inherit (llvmPackages) llvm;
+  };
   stdenv =
     if useLibcxx
-    then llvmPackages_21.libcxxStdenv
-    else llvmPackages_21.stdenv;
-  pkgs = llvmPackages_21.override (old: {
+    then llvmPackages.libcxxStdenv
+    else llvmPackages.stdenv;
+  pkgs = llvmPackages.override (old: {
     # version = "todo";
     inherit stdenv src;
 
@@ -76,7 +81,7 @@ in {
         zstd
 
         hwloc
-        spirv-llvm-translator
+        spirv-llvm-translator'
         spirv-tools
 
         vc-intrinsics
@@ -109,8 +114,7 @@ in {
         (lib.cmakeBool "FETCHCONTENT_QUIET" false)
 
         (lib.cmakeFeature "LLVMGenXIntrinsics_SOURCE_DIR" "${deps.vc-intrinsics}")
-        # We need the actual source code here, so we can't use the nix derivation
-        (lib.cmakeFeature "LLVM_EXTERNAL_SPIRV_HEADERS_SOURCE_DIR" "${deps.spirv-headers}")
+        (lib.cmakeFeature "LLVM_EXTERNAL_SPIRV_HEADERS_SOURCE_DIR" "${spirv-headers.src}")
 
         (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_EMHASH" "${deps.emhash}")
         (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_PARALLEL-HASHMAP" "${deps.parallel-hashmap}")
