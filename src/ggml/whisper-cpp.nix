@@ -37,6 +37,7 @@ in
       # mkl
       opencl-headers
       ocl-icd
+      llvm.baseLlvm.openmp
     ];
 
     hardeningDisable = [
