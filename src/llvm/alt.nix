@@ -30,13 +30,12 @@
   vulkanSupport ? true,
   useLibcxx ? false,
   useLdd ? false,
-  enablePolly ? true,
   buildTests ? false,
   buildDocs ? false,
   buildMan ? false,
 }: let
-  version = "nightly-2025-08-10";
-  date = "20250810";
+  version = "unstable-2025-08-12";
+  date = "20250812";
   deps = callPackage ./deps.nix {};
   unified-runtime' = unified-runtime.override {
     inherit
@@ -54,8 +53,8 @@
     owner = "intel";
     repo = "llvm";
     # tag = "sycl-web/sycl-latest-good";
-    rev = "b6a619ec00d740be5c340d447fb1f71cf75d653a";
-    hash = "sha256-hJ+m/y43ZGPeh/i46jdImA22FT6Oqb7yZj7iU5zZGac=";
+    rev = "0e0984eec8008f4f6cb8b3bf6c2811f0dd8faa94";
+    hash = "sha256-AkAwc7JjvDcuXq5lGavnUsE8GKfiPV5CCR18InPl8ws=";
   };
   llvmPackages = llvmPackages_21;
   spirv-llvm-translator' = spirv-llvm-translator.override {
@@ -76,30 +75,30 @@
     monorepoSrc = src;
 
     doCheck = false;
+
+    enableSharedLibraries = false;
   });
 in rec {
   llvm = pkgs.llvm.overrideAttrs (old: {
     # inherit src;
-    src = runCommand "llvm-src-${version}" {inherit (src) passthru;} (
-      ''
-        mkdir -p "$out"
-        cp -r ${src}/llvm "$out"
-        cp -r ${src}/cmake "$out"
-        cp -r ${src}/third-party "$out"
-        cp -r ${src}/libc "$out"
+    src = runCommand "llvm-src-${version}" {inherit (src) passthru;} ''
+      mkdir -p "$out"
+      cp -r ${src}/llvm "$out"
+      cp -r ${src}/cmake "$out"
+      cp -r ${src}/third-party "$out"
+      cp -r ${src}/libc "$out"
 
-        cp -r ${src}/sycl "$out"
-        # cp -r ${src}/unified-runtime "$out"
-      ''
-      + lib.optionalString enablePolly ''
-        chmod u+w "$out/llvm/tools"
-        cp -r ${src}/polly "$out/llvm/tools"
-      ''
-    );
+      cp -r ${src}/sycl "$out"
+      # cp -r ${src}/unified-runtime "$out"
+
+      chmod u+w "$out/llvm/tools"
+      cp -r ${src}/polly "$out/llvm/tools"
+    '';
 
     buildInputs =
       old.buildInputs
       ++ [
+        stdenv.cc.cc.lib
         zlib
         zstd
 
@@ -125,6 +124,8 @@ in rec {
         # "-DLLVM_ENABLE_THREADS=ON"
         # "-DLLVM_ENABLE_LTO=Thin"
         # "-DLLVM_USE_LINKER=lld"
+
+        (lib.cmakeBool "BUILD_SHARED_LIBS" true)
 
         # (lib.cmakeBool "LLVM_ENABLE_LIBCXX" useLibcxx)
         # (lib.cmakeFeature "CLANG_DEFAULT_CXX_STDLIB" (if useLibcxx then "libc++" else "libstdc++"))

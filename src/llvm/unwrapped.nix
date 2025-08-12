@@ -44,8 +44,8 @@
   buildDocs ? false,
   buildMan ? false,
 }: let
-  version = "nightly-2025-08-10";
-  date = "20250810";
+  version = "unstable-2025-08-12";
+  date = "20250812";
   deps = callPackage ./deps.nix {};
   unified-runtime' = unified-runtime.override {
     inherit
@@ -86,8 +86,8 @@ in
       owner = "intel";
       repo = "llvm";
       # tag = "sycl-web/sycl-latest-good";
-      rev = "b6a619ec00d740be5c340d447fb1f71cf75d653a";
-      hash = "sha256-hJ+m/y43ZGPeh/i46jdImA22FT6Oqb7yZj7iU5zZGac=";
+      rev = "0e0984eec8008f4f6cb8b3bf6c2811f0dd8faa94";
+      hash = "sha256-AkAwc7JjvDcuXq5lGavnUsE8GKfiPV5CCR18InPl8ws=";
     };
 
     # I'd like to split outputs, but currently this fails
