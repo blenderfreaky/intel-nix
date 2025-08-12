@@ -20,5 +20,5 @@ stdenv.mkDerivation {
     # ninja
   ];
 
-  cmakeFlags = [ "-DCMAKE_CXX_FLAGS='-msse4.1'" ];
+  cmakeFlags = ["-DCMAKE_CXX_FLAGS='-msse4.1'"];
 }
