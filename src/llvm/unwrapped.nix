@@ -13,6 +13,7 @@
   # Rather than duplicating the flags, we can simply use the existing flags.
   # We can also use this to debug unified-runtime without building the entire LLVM project.
   unified-runtime,
+  vc-intrinsics,
   sphinx,
   doxygen,
   level-zero,
@@ -43,8 +44,8 @@
   buildDocs ? false,
   buildMan ? false,
 }: let
-  version = "nightly-2025-08-05";
-  date = "20250805";
+  version = "nightly-2025-08-10";
+  date = "20250810";
   deps = callPackage ./deps.nix {};
   unified-runtime' = unified-runtime.override {
     inherit
@@ -85,8 +86,8 @@ in
       owner = "intel";
       repo = "llvm";
       # tag = "sycl-web/sycl-latest-good";
-      rev = "542a00b45276bd9a24ba85c041b0d5535a896593";
-      hash = "sha256-d6HdVeEZR0Ydl9JgdZTUtMwJ++SgzFjN39/c6Fi6ha0=";
+      rev = "b6a619ec00d740be5c340d447fb1f71cf75d653a";
+      hash = "sha256-hJ+m/y43ZGPeh/i46jdImA22FT6Oqb7yZj7iU5zZGac=";
     };
 
     # I'd like to split outputs, but currently this fails
@@ -119,6 +120,7 @@ in
         zlib
         libedit
         hwloc
+        vc-intrinsics
         intel-compute-runtime
         # TODO: Package separately
         # emhash
@@ -236,8 +238,8 @@ in
         (lib.cmakeBool "FETCHCONTENT_FULLY_DISCONNECTED" true)
         (lib.cmakeBool "FETCHCONTENT_QUIET" false)
 
-        (lib.cmakeFeature "LLVMGenXIntrinsics_SOURCE_DIR" "${deps.vc-intrinsics}")
-        # We need the actual source code here, so we can't use the nix derivation
+        #(lib.cmakeFeature "LLVMGenXIntrinsics_SOURCE_DIR" "${deps.vc-intrinsics}")
+        # This can be changed to (pkgs.) spirv-headers.src once they release a new version and nix updates to that
         (lib.cmakeFeature "LLVM_EXTERNAL_SPIRV_HEADERS_SOURCE_DIR" "${deps.spirv-headers}")
 
         (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_EMHASH" "${deps.emhash}")

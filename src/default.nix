@@ -1,22 +1,16 @@
 {
   lib,
   callPackage,
-  # llvmPackages_11,
-  llvmPackages_14,
-  llvmPackages_15,
-  llvmPackages_16,
-  llvmPackages_17,
-  llvmPackages_18,
-  llvmPackages_19,
-  llvmPackages_20,
-  llvmPackages_21,
+  pkgs,
 }: rec {
-  llvm = callPackage ./llvm {inherit unified-runtime;};
+  llvm = callPackage ./llvm {inherit unified-runtime vc-intrinsics;};
   llvm-alt = callPackage ./llvm/alt.nix {
-    inherit unified-runtime vc-intrinsics spirv-llvm-translator;
+    inherit unified-runtime vc-intrinsics; # spirv-llvm-translator;
   };
 
-  unified-runtime = callPackage ./unified-runtime.nix {inherit unified-memory-framework;};
+  unified-runtime = callPackage ./unified-runtime.nix {
+    inherit unified-memory-framework hdr-histogram;
+  };
   unified-memory-framework = callPackage ./unified-memory-framework.nix {inherit oneTBB;};
 
   hdr-histogram = callPackage ./hdr-histogram.nix {};
@@ -33,26 +27,17 @@
   };
 
   spirv-llvm-translator = callPackage ./spirv-llvm-translator.nix {};
-  spirv-llvm-translator-test =
-    lib.mapAttrs
-    (
-      _name: llvmPkg:
-        spirv-llvm-translator.override {
-          inherit (llvmPkg) llvm;
-        }
-    )
-    {
-      # llvmPackages_11
-      "14" = llvmPackages_14;
-      "15" = llvmPackages_15;
-      "16" = llvmPackages_16;
-      "17" = llvmPackages_17;
-      "18" = llvmPackages_18;
-      "19" = llvmPackages_19;
-      "20" = llvmPackages_20;
-      "21" = llvmPackages_21;
-    };
 
+  spirv-llvm-translator-tests = lib.genAttrs [
+    "14"
+    "15"
+    "16"
+    "17"
+    "18"
+    "19"
+    "20"
+    "21"
+  ] (version: spirv-llvm-translator.override {llvm = pkgs."llvm_${version}";});
   oneapi-ck = callPackage ./oneapi-ck.nix {};
 
   khronos-sycl-cts = callPackage ./khronos-sycl-cts.nix {mkDerivation = llvm.stdenv.mkDerivation;};

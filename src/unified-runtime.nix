@@ -18,6 +18,8 @@
   level-zero,
   opencl-headers,
   ocl-icd,
+  hdr-histogram,
+  gtest,
   levelZeroSupport ? true,
   openclSupport ? true,
   # Broken
@@ -32,23 +34,12 @@
   ctestCheckHook,
 }: let
   version = "0.12.0";
-  gtest = fetchFromGitHub {
-    owner = "google";
-    repo = "googletest";
-    tag = "v1.15.2";
-    sha256 = "sha256-1OJ2SeSscRBNr7zZ/a8bJGIqAnhkg45re0j3DtPfcXM=";
-  };
+  # TODO: intel-compute-runtime.src
   compute-runtime = fetchFromGitHub {
     owner = "intel";
     repo = "compute-runtime";
     tag = "25.05.32567.17";
     sha256 = "sha256-/9UQJ5Ng2ip+3cNcVZOtKAmnx4LpmPja+aTghIqF1bc=";
-  };
-  hdr-histogram = fetchFromGitHub {
-    owner = "HdrHistogram";
-    repo = "HdrHistogram_c";
-    tag = "0.11.8";
-    sha256 = "sha256-TFlrC4bgK8o5KRZcLMlYU5EO9Oqaqe08PjJgmsUl51M=";
   };
   rocmtoolkit_joined = symlinkJoin {
     name = "rocm-merged";
@@ -79,6 +70,7 @@
           zlib
           libbacktrace
           hwloc
+          hdr-histogram # TODO: Make optional?
         ]
         ++ lib.optionals openclSupport [
           opencl-headers
@@ -101,6 +93,7 @@
           vulkan-loader
         ]
         ++ lib.optionals buildTests [
+          gtest
           lit
           filecheck
         ];
@@ -112,8 +105,8 @@
         # TODO: Update to a tag once a new release is available
         #       On current latest tag there's build issues that are resolved in later commits,
         #       so we use a newer commit for now.
-        rev = "a6437589c67c3acdeffa80a0d544a6612e63a29b";
-        sha256 = "sha256-zMZc0sy+waqcGyGVu+T0/+ZSpH8oHcQzNp1B3MNUopI=";
+        rev = "e3e405dde9a68ce45b0f910666d17715a6755489";
+        hash = "sha256-BYP+L+SAH9uPLjg+ZxCGQD42MDDp4zV/kuQbD2fuD3U=";
       };
 
       nativeCheckInputs = lib.optionals buildTests [
@@ -144,14 +137,7 @@
           (lib.cmakeBool "FETCHCONTENT_FULLY_DISCONNECTED" true)
           (lib.cmakeBool "FETCHCONTENT_QUIET" false)
 
-          (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_HDR_HISTOGRAM" "${hdr-histogram}")
-
-          # Their CMake code will print that it's fetching from/will download from github anyways.
-          # This can be safely ignored - it's not actually doing that.
-          (lib.cmakeBool "UR_USE_EXTERNAL_UMF" true)
-
-          (lib.cmakeBool "UR_ENABLE_LATENCY_HISTOGRAM" false)
-          # (lib.cmakeBool "UR_ENABLE_LATENCY_HISTOGRAM" true)
+          (lib.cmakeBool "UR_ENABLE_LATENCY_HISTOGRAM" true)
 
           (lib.cmakeBool "UR_COMPUTE_RUNTIME_FETCH_REPO" false)
           (lib.cmakeFeature "UR_COMPUTE_RUNTIME_REPO" "${compute-runtime}")
