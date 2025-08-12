@@ -160,7 +160,7 @@
           (lib.cmakeBool "UR_BUILD_TESTS" buildTests)
 
           (lib.cmakeBool "UR_BUILD_ADAPTER_L0" levelZeroSupport)
-          (lib.cmakeBool "UR_BUILD_ADAPTER_L0_V2" false)
+          (lib.cmakeBool "UR_BUILD_ADAPTER_L0_V2" levelZeroSupport)
           (lib.cmakeBool "UR_BUILD_ADAPTER_OPENCL" openclSupport)
           (lib.cmakeBool "UR_BUILD_ADAPTER_CUDA" cudaSupport)
           (lib.cmakeBool "UR_BUILD_ADAPTER_HIP" rocmSupport)
