@@ -109,7 +109,6 @@
     then llvmPackages.libcxxStdenv
     else llvmPackages.stdenv;
   pkgs = llvmPackages.override (old: {
-    # version = "todo";
     inherit stdenv;
     #inherit src;
 
@@ -153,17 +152,17 @@ in
         old.buildInputs
         ++ [
           stdenv.cc.cc.lib
-          zlib
           zstd
 
+          zlib
           hwloc
-          #spirv-llvm-translator'
-          # spirv-tools
 
           vc-intrinsics
 
           # Not sure if this is needed
-          #intel-compute-runtime
+          # spirv-llvm-translator'
+          # spirv-tools
+          # intel-compute-runtime
           # llvmPackages_21.bintools
         ]
         ++ unified-runtime'.buildInputs;
@@ -186,7 +185,7 @@ in
 
           (lib.cmakeBool "BUILD_SHARED_LIBS" false)
           (lib.cmakeBool "LLVM_LINK_LLVM_DYLIB" false)
-          (lib.cmakeBool "LLVM_BUILD_LLVM_DYLIB" false)
+          (lib.cmakeBool "LLVM_BUILD_LLVM_DYLIB" true)
 
           # (lib.cmakeBool "LLVM_ENABLE_LIBCXX" useLibcxx)
           # (lib.cmakeFeature "CLANG_DEFAULT_CXX_STDLIB" (if useLibcxx then "libc++" else "libstdc++"))
@@ -230,52 +229,6 @@ in
         ++ unified-runtime'.cmakeFlags
         ++ ["-DUR_ENABLE_TRACING=OFF"];
 
-      # postPatch =
-      #   old.postPatch
-      #   + ''
-      #     # The latter is used everywhere except this one file. For some reason,
-      #     # the former is not set, at least when building with Nix, so we replace it.
-      #     # See also: github.com/intel/llvm/pull/19637
-      #     # substituteInPlace ../unified-runtime/cmake/helpers.cmake \
-      #     #   --replace-fail "PYTHON_EXECUTABLE" "Python3_EXECUTABLE"
-      #
-      #       chmod -R u+w ../sycl
-      #
-      #       # When running without this, their CMake code copies files from the Nix store.
-      #       # As the Nix store is read-only and COPY copies permissions by default,
-      #       # this will lead to the copied files also being read-only.
-      #       # As CMake at a later point wants to write into copied folders, this causes
-      #       # the build to fail with a (rather cryptic) permission error.
-      #       # By setting NO_SOURCE_PERMISSIONS we side-step this issue.
-      #       # Note in case of future build failures: if there are executables in any of the copied folders,
-      #       # we may need to add special handling to set the executable permissions.
-      #       # See also: https://github.com/intel/llvm/issues/19635#issuecomment-3134830708
-      #       sed -i '/file(COPY / { /NO_SOURCE_PERMISSIONS/! s/)\s*$/ NO_SOURCE_PERMISSIONS)/ }' \
-      #         ../sycl/CMakeLists.txt \
-      #         ../sycl/cmake/modules/FetchEmhash.cmake \
-      #         # ../unified-runtime/cmake/FetchLevelZero.cmake
-      #
-      #       # Parts of libdevice are built using the freshly-built compiler.
-      #       # As it tries to link to system libraries, we need to wrap it with the
-      #       # usual nix cc-wrapper.
-      #       # Since the compiler to be wrapped is not available at this point,
-      #       # we use a stub that points to where it will be later on
-      #       # in `/build/source/build/bin/clang-21`
-      #       # Note: both nix and bash try to expand clang_exe here, so double-escape it
-      #       #substituteInPlace libdevice/cmake/modules/SYCLLibdevice.cmake \
-      #       #  --replace-fail "\''${clang_exe}" "$ {ccWrapperStub}/bin/clang++"
-      #
-      #       # Some libraries check for the version of the compiler.
-      #       # For some reason, this version is determined by the
-      #       # date of compilation. As the nix sandbox tells CMake
-      #       # it's running at Unix epoch, this will always result in
-      #       # a waaaay too old version.
-      #       # To avoid this, we set the version to a fixed value.
-      #       # See also: https://github.com/intel/llvm/issues/19692
-      #       substituteInPlace ../sycl/CMakeLists.txt \
-      #         --replace-fail 'string(TIMESTAMP __SYCL_COMPILER_VERSION "%Y%m%d")' 'set(__SYCL_COMPILER_VERSION "${date}")'
-      #     '';
-
       preConfigure =
         old.preConfigure
         + ''
@@ -293,7 +246,6 @@ in
       src = runCommand "xpti-src-${version}" {inherit (src) passthru;} ''
         mkdir -p "$out"
         cp -r ${src}/xpti "$out"
-        # cp -r ${src}/xptifw "$out"
       '';
 
       sourceRoot = "${finalAttrs.src.name}/xpti";
