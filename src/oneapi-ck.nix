@@ -18,13 +18,15 @@
 }: let
   # version = "v4.0.0";
   version = "d0a32d701e34b3285de7ce776ea36abfec673df7";
-  llvm = llvmPackages_20;
+  llvmPackages = llvmPackages_20;
   llvm-merged = symlinkJoin {
     name = "llvm-merged";
-    paths = [
-      llvm.llvm.dev
-      llvm.clang-unwrapped.dev
-      llvm.clang
+    paths = with llvmPackages; [
+      llvm.dev
+      clang-unwrapped.dev
+      clang
+      bintools
+      clang-tools
     ];
   };
   # They currently use FetchContent for this and expect the actual source directory to be passed
@@ -53,7 +55,7 @@ in
       python3
       lit
       doxygen
-      llvm.bintools
+      llvm-merged # for bintools
     ];
 
     buildInputs = [
@@ -62,7 +64,7 @@ in
       spirv-headers
       libffi
       libxml2
-      llvm.clang-tools
+      llvm-merged # for clang-tools
     ];
 
     cmakeFlags = [
