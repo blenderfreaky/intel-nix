@@ -104,6 +104,9 @@
   spirv-llvm-translator' = spirv-llvm-translator.override {
     inherit (llvmPackages) llvm;
   };
+  tblgen = pkgs.tblgen.overrideAttrs (old: {
+    buildInputs = (old.buildInputs or []) ++ [vc-intrinsics];
+  });
   stdenv =
     if useLibcxx
     then llvmPackages.libcxxStdenv
@@ -120,18 +123,14 @@
 
     doCheck = false;
 
-    enableSharedLibraries = false;
+    # enableSharedLibraries = false;
 
-    buildLlvmTools.tblgen = pkgs.tblgen.overrideAttrs (old: {
-      buildInputs = (old.buildInputs or []) ++ [vc-intrinsics];
-    });
+    buildLlvmTools.tblgen = tblgen;
   });
 in
   pkgs
   // rec {
-    tblgen = pkgs.tblgen.overrideAttrs (old: {
-      buildInputs = (old.buildInputs or []) ++ [vc-intrinsics];
-    });
+    inherit tblgen;
     llvm = pkgs.llvm.overrideAttrs (old: {
       # inherit src;
       src = runCommand "llvm-src-${version}" {inherit (src) passthru;} ''
@@ -142,10 +141,15 @@ in
         cp -r ${src}/libc "$out"
 
         cp -r ${src}/sycl "$out"
+        cp -r ${src}/sycl-jit "$out"
+        cp -r ${src}/llvm-spirv "$out"
         # cp -r ${src}/unified-runtime "$out"
 
         chmod u+w "$out/llvm/tools"
         cp -r ${src}/polly "$out/llvm/tools"
+
+        # chmod u+w "$out/llvm/projects"
+        # cp -r ${vc-intrinsics.src} "$out/llvm/projects"
       '';
 
       buildInputs =
@@ -157,7 +161,7 @@ in
           zlib
           hwloc
 
-          vc-intrinsics
+          # vc-intrinsics
 
           # Not sure if this is needed
           # spirv-llvm-translator'
@@ -184,8 +188,10 @@ in
           # "-DLLVM_USE_LINKER=lld"
 
           (lib.cmakeBool "BUILD_SHARED_LIBS" false)
+          # TODO: configure fails when these are true, but I've no idea why
+          # NOTE: Fails with buildbot/configure.py as well when these are set
           (lib.cmakeBool "LLVM_LINK_LLVM_DYLIB" false)
-          (lib.cmakeBool "LLVM_BUILD_LLVM_DYLIB" true)
+          (lib.cmakeBool "LLVM_BUILD_LLVM_DYLIB" false)
 
           # (lib.cmakeBool "LLVM_ENABLE_LIBCXX" useLibcxx)
           # (lib.cmakeFeature "CLANG_DEFAULT_CXX_STDLIB" (if useLibcxx then "libc++" else "libstdc++"))
@@ -193,7 +199,9 @@ in
           (lib.cmakeBool "FETCHCONTENT_FULLY_DISCONNECTED" true)
           (lib.cmakeBool "FETCHCONTENT_QUIET" false)
 
-          #(lib.cmakeFeature "LLVMGenXIntrinsics_SOURCE_DIR" "${deps.vc-intrinsics}")
+          # (lib.cmakeFeature "LLVMGenXIntrinsics_SOURCE_DIR" "${deps.vc-intrinsics}")
+          (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_VC-INTRINSICS" "${deps.vc-intrinsics}")
+
           (lib.cmakeFeature "LLVM_EXTERNAL_SPIRV_HEADERS_SOURCE_DIR" "${spirv-headers.src}")
 
           (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_EMHASH" "${deps.emhash}")
@@ -206,6 +214,8 @@ in
 
           (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_ONEAPI-CK" "${deps.oneapi-ck}")
 
+          # "-DLLVM_EXTERNAL_VC_INTRINSICS_SOURCE_DIR=${vc-intrinsics.src}"
+          # "-DLLVM_EXTERNAL_PROJECTS=sycl;vc-intrinsics;llvm-spirv;sycl-jit"
           #"-DLLVM_EXTERNAL_PROJECTS=sycl;llvm-spirv;opencl;xpti;xptifw;libdevice;sycl-jit"
           # "-DLLVM_EXTERNAL_PROJECTS=sycl;llvm-spirv;opencl;sycl-jit"
           # "-DLLVM_EXTERNAL_SYCL_SOURCE_DIR=/build/source/sycl"
@@ -216,7 +226,7 @@ in
           #"-DLLVM_EXTERNAL_LIBDEVICE_SOURCE_DIR=/build/source/libdevice"
           # "-DLLVM_EXTERNAL_SYCL_JIT_SOURCE_DIR=/build/source/sycl-jit"
           #"-DLLVM_ENABLE_PROJECTS=clang\;sycl\;llvm-spirv\;opencl\;xpti\;xptifw\;libdevice\;sycl-jit\;libclc\;lld"
-          # "-DLLVM_ENABLE_PROJECTS=sycl;llvm-spirv;opencl;sycl-jit"
+          # "-DLLVM_ENABLE_PROJECTS=sycl;llvm-spirv;sycl-jit"
 
           # (if pkgs.stdenv.cc.isClang then throw "hiii" else "")
         ]

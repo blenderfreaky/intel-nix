@@ -29,5 +29,7 @@ in
 
     cmakeFlags = [
       (lib.cmakeFeature "LLVM_DIR" "${lib.getDev llvmPackages_21.llvm}/lib/cmake/llvm")
+      # (lib.cmakeBool "BUILD_EXTERNAL" true)
+      # (lib.cmakeBool "LLVM_LINK_LLVM_DYLIB" false)
     ];
   }
