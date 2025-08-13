@@ -101,9 +101,17 @@
       --replace-fail 'string(TIMESTAMP __SYCL_COMPILER_VERSION "%Y%m%d")' 'set(__SYCL_COMPILER_VERSION "${date}")'
   '';
   llvmPackages = llvmPackages_21;
-  spirv-llvm-translator' = spirv-llvm-translator.override {
-    inherit (llvmPackages) llvm;
-  };
+  # TODO: I'm not sure whether we need to override the src, or if
+  # they just vendored upstream without patches.
+  spirv-llvm-translator' =
+    (spirv-llvm-translator.override {
+      inherit (llvmPackages) llvm;
+    }).overrideAttrs
+    (old: {
+      src = runCommand "spirv-llvm-translator-src-${version}" {} ''
+        cp -r ${src}/llvm-spirv $out
+      '';
+    });
   tblgen = pkgs.tblgen.overrideAttrs (old: {
     buildInputs = (old.buildInputs or []) ++ [vc-intrinsics];
   });
@@ -131,123 +139,135 @@ in
   pkgs
   // rec {
     inherit tblgen;
-    llvm = pkgs.llvm.overrideAttrs (old: {
-      # inherit src;
-      src = runCommand "llvm-src-${version}" {inherit (src) passthru;} ''
-        mkdir -p "$out"
-        cp -r ${src}/llvm "$out"
-        cp -r ${src}/cmake "$out"
-        cp -r ${src}/third-party "$out"
-        cp -r ${src}/libc "$out"
+    llvm = pkgs.llvm.overrideAttrs (
+      old: let
+        src' = runCommand "llvm-src-${version}" {inherit (src) passthru;} ''
+          mkdir -p "$out"
+          cp -r ${src}/llvm "$out"
+          cp -r ${src}/cmake "$out"
+          cp -r ${src}/third-party "$out"
+          cp -r ${src}/libc "$out"
 
-        cp -r ${src}/sycl "$out"
-        cp -r ${src}/sycl-jit "$out"
-        cp -r ${src}/llvm-spirv "$out"
-        # cp -r ${src}/unified-runtime "$out"
+          cp -r ${src}/sycl "$out"
+          cp -r ${src}/sycl-jit "$out"
+          cp -r ${src}/llvm-spirv "$out"
+          # cp -r ${src}/unified-runtime "$out"
 
-        chmod u+w "$out/llvm/tools"
-        cp -r ${src}/polly "$out/llvm/tools"
+          chmod u+w "$out/llvm/tools"
+          cp -r ${src}/polly "$out/llvm/tools"
 
-        # chmod u+w "$out/llvm/projects"
-        # cp -r ${vc-intrinsics.src} "$out/llvm/projects"
-      '';
+          # chmod u+w "$out/llvm/projects"
+          # cp -r ${vc-intrinsics.src} "$out/llvm/projects"
+        '';
+      in {
+        # inherit src;
+        src = src';
 
-      buildInputs =
-        old.buildInputs
-        ++ [
-          stdenv.cc.cc.lib
-          zstd
+        buildInputs =
+          old.buildInputs
+          ++ [
+            stdenv.cc.cc.lib
+            zstd
 
+            zlib
+            hwloc
+
+            # spirv-llvm-translator'
+
+            # vc-intrinsics
+
+            # Not sure if this is needed
+            # spirv-llvm-translator'
+            # spirv-tools
+            # intel-compute-runtime
+            # llvmPackages_21.bintools
+          ]
+          ++ unified-runtime'.buildInputs;
+
+        propagatedBuildInputs = [
           zlib
           hwloc
+        ];
 
-          # vc-intrinsics
+        cmakeFlags =
+          old.cmakeFlags
+          ++ [
+            # "-DCMAKE_BUILD_TYPE=Release"
+            # "-DLLVM_ENABLE_ZSTD=FORCE_ON"
+            # This is broken. TODO: Fix
+            # "-DLLVM_ENABLE_ZLIB=FORCE_ON"
+            # "-DLLVM_ENABLE_THREADS=ON"
+            # "-DLLVM_ENABLE_LTO=Thin"
+            # "-DLLVM_USE_LINKER=lld"
 
-          # Not sure if this is needed
-          # spirv-llvm-translator'
-          # spirv-tools
-          # intel-compute-runtime
-          # llvmPackages_21.bintools
-        ]
-        ++ unified-runtime'.buildInputs;
+            (lib.cmakeBool "BUILD_SHARED_LIBS" false)
+            # TODO: configure fails when these are true, but I've no idea why
+            # NOTE: Fails with buildbot/configure.py as well when these are set
+            (lib.cmakeBool "LLVM_LINK_LLVM_DYLIB" false)
+            (lib.cmakeBool "LLVM_BUILD_LLVM_DYLIB" false)
 
-      propagatedBuildInputs = [
-        zlib
-        hwloc
-      ];
+            # (lib.cmakeBool "LLVM_ENABLE_LIBCXX" useLibcxx)
+            # (lib.cmakeFeature "CLANG_DEFAULT_CXX_STDLIB" (if useLibcxx then "libc++" else "libstdc++"))
 
-      cmakeFlags =
-        old.cmakeFlags
-        ++ [
-          # "-DCMAKE_BUILD_TYPE=Release"
-          # "-DLLVM_ENABLE_ZSTD=FORCE_ON"
-          # This is broken. TODO: Fix
-          # "-DLLVM_ENABLE_ZLIB=FORCE_ON"
-          # "-DLLVM_ENABLE_THREADS=ON"
-          # "-DLLVM_ENABLE_LTO=Thin"
-          # "-DLLVM_USE_LINKER=lld"
+            (lib.cmakeBool "FETCHCONTENT_FULLY_DISCONNECTED" true)
+            (lib.cmakeBool "FETCHCONTENT_QUIET" false)
 
-          (lib.cmakeBool "BUILD_SHARED_LIBS" false)
-          # TODO: configure fails when these are true, but I've no idea why
-          # NOTE: Fails with buildbot/configure.py as well when these are set
-          (lib.cmakeBool "LLVM_LINK_LLVM_DYLIB" false)
-          (lib.cmakeBool "LLVM_BUILD_LLVM_DYLIB" false)
+            # (lib.cmakeFeature "LLVMGenXIntrinsics_SOURCE_DIR" "${deps.vc-intrinsics}")
+            (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_VC-INTRINSICS" "${deps.vc-intrinsics}")
 
-          # (lib.cmakeBool "LLVM_ENABLE_LIBCXX" useLibcxx)
-          # (lib.cmakeFeature "CLANG_DEFAULT_CXX_STDLIB" (if useLibcxx then "libc++" else "libstdc++"))
+            (lib.cmakeFeature "LLVM_EXTERNAL_SPIRV_HEADERS_SOURCE_DIR" "${spirv-headers.src}")
 
-          (lib.cmakeBool "FETCHCONTENT_FULLY_DISCONNECTED" true)
-          (lib.cmakeBool "FETCHCONTENT_QUIET" false)
+            (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_EMHASH" "${deps.emhash}")
+            (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_PARALLEL-HASHMAP" "${deps.parallel-hashmap}")
 
-          # (lib.cmakeFeature "LLVMGenXIntrinsics_SOURCE_DIR" "${deps.vc-intrinsics}")
-          (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_VC-INTRINSICS" "${deps.vc-intrinsics}")
+            # These can be switched over to nixpkgs versions once they're updated
+            # See: https://github.com/NixOS/nixpkgs/pull/428558
+            (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_OCL-HEADERS" "${deps.opencl-headers}")
+            (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_OCL-ICD" "${deps.opencl-icd-loader}")
 
-          (lib.cmakeFeature "LLVM_EXTERNAL_SPIRV_HEADERS_SOURCE_DIR" "${spirv-headers.src}")
+            (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_ONEAPI-CK" "${deps.oneapi-ck}")
 
-          (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_EMHASH" "${deps.emhash}")
-          (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_PARALLEL-HASHMAP" "${deps.parallel-hashmap}")
+            # "-DLLVM_EXTERNAL_VC_INTRINSICS_SOURCE_DIR=${vc-intrinsics.src}"
+            #"-DLLVM_EXTERNAL_PROJECTS=sycl;llvm-spirv;opencl;xpti;xptifw;libdevice;sycl-jit"
+            # "-DLLVM_EXTERNAL_PROJECTS=sycl;llvm-spirv"
+            "-DLLVM_EXTERNAL_PROJECTS=llvm-spirv"
+            # "-DLLVM_EXTERNAL_SYCL_SOURCE_DIR=/build/${src'.name}/sycl"
+            "-DLLVM_EXTERNAL_LLVM_SPIRV_SOURCE_DIR=/build/${src'.name}/llvm-spirv"
+            #"-DLLVM_EXTERNAL_XPTI_SOURCE_DIR=/build/${src'.name}/xpti"
+            #"-DXPTI_SOURCE_DIR=/build/${src'.name}/xpti"
+            #"-DLLVM_EXTERNAL_XPTIFW_SOURCE_DIR=/build/${src'.name}/xptifw"
+            #"-DLLVM_EXTERNAL_LIBDEVICE_SOURCE_DIR=/build/${src'.name}/libdevice"
+            # "-DLLVM_EXTERNAL_SYCL_JIT_SOURCE_DIR=/build/${src'.name}/sycl-jit"
+            #"-DLLVM_ENABLE_PROJECTS=clang\;sycl\;llvm-spirv\;opencl\;xpti\;xptifw\;libdevice\;sycl-jit\;libclc\;lld"
+            # "-DLLVM_ENABLE_PROJECTS=llvm-spirv"
 
-          # These can be switched over to nixpkgs versions once they're updated
-          # See: https://github.com/NixOS/nixpkgs/pull/428558
-          (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_OCL-HEADERS" "${deps.opencl-headers}")
-          (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_OCL-ICD" "${deps.opencl-icd-loader}")
+            # These require clang, which we don't have at this point.
+            # TODO: Build these later, e.g. in passthru.tests
+            "-DLLVM_SPIRV_INCLUDE_TESTS=OFF"
 
-          (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_ONEAPI-CK" "${deps.oneapi-ck}")
+            "-DLLVM_SPIRV_ENABLE_LIBSPIRV_DIS=ON"
 
-          # "-DLLVM_EXTERNAL_VC_INTRINSICS_SOURCE_DIR=${vc-intrinsics.src}"
-          # "-DLLVM_EXTERNAL_PROJECTS=sycl;vc-intrinsics;llvm-spirv;sycl-jit"
-          #"-DLLVM_EXTERNAL_PROJECTS=sycl;llvm-spirv;opencl;xpti;xptifw;libdevice;sycl-jit"
-          # "-DLLVM_EXTERNAL_PROJECTS=sycl;llvm-spirv;opencl;sycl-jit"
-          # "-DLLVM_EXTERNAL_SYCL_SOURCE_DIR=/build/source/sycl"
-          # "-DLLVM_EXTERNAL_LLVM_SPIRV_SOURCE_DIR=/build/source/llvm-spirv"
-          #"-DLLVM_EXTERNAL_XPTI_SOURCE_DIR=/build/source/xpti"
-          #"-DXPTI_SOURCE_DIR=/build/source/xpti"
-          #"-DLLVM_EXTERNAL_XPTIFW_SOURCE_DIR=/build/source/xptifw"
-          #"-DLLVM_EXTERNAL_LIBDEVICE_SOURCE_DIR=/build/source/libdevice"
-          # "-DLLVM_EXTERNAL_SYCL_JIT_SOURCE_DIR=/build/source/sycl-jit"
-          #"-DLLVM_ENABLE_PROJECTS=clang\;sycl\;llvm-spirv\;opencl\;xpti\;xptifw\;libdevice\;sycl-jit\;libclc\;lld"
-          # "-DLLVM_ENABLE_PROJECTS=sycl;llvm-spirv;sycl-jit"
+            # (if pkgs.stdenv.cc.isClang then throw "hiii" else "")
+          ]
+          # ++ lib.optionals pkgs.stdenv.cc.isClang [
+          #   # (lib.cmakeFeature "CMAKE_C_FLAGS_RELEASE" "-flto=thin\\\\ -ffat-lto-objects")
+          #   # (lib.cmakeFeature "CMAKE_CXX_FLAGS_RELEASE" "-flto=thin\\\\ -ffat-lto-objects")
+          #   "-DCMAKE_C_FLAGS_RELEASE=-flto=thin -ffat-lto-objects"
+          #   "-DCMAKE_CXX_FLAGS_RELEASE=-flto=thin -ffat-lto-objects"
+          # ]
+          ++ unified-runtime'.cmakeFlags
+          ++ ["-DUR_ENABLE_TRACING=OFF"];
 
-          # (if pkgs.stdenv.cc.isClang then throw "hiii" else "")
-        ]
-        # ++ lib.optionals pkgs.stdenv.cc.isClang [
-        #   # (lib.cmakeFeature "CMAKE_C_FLAGS_RELEASE" "-flto=thin\\\\ -ffat-lto-objects")
-        #   # (lib.cmakeFeature "CMAKE_CXX_FLAGS_RELEASE" "-flto=thin\\\\ -ffat-lto-objects")
-        #   "-DCMAKE_C_FLAGS_RELEASE=-flto=thin -ffat-lto-objects"
-        #   "-DCMAKE_CXX_FLAGS_RELEASE=-flto=thin -ffat-lto-objects"
-        # ]
-        ++ unified-runtime'.cmakeFlags
-        ++ ["-DUR_ENABLE_TRACING=OFF"];
-
-      preConfigure =
-        old.preConfigure
-        + ''
-          cmakeFlagsArray+=(
-            "-DCMAKE_C_FLAGS_RELEASE=-flto=thin -ffat-lto-objects"
-            "-DCMAKE_CXX_FLAGS_RELEASE=-flto=thin -ffat-lto-objects"
-          )
-        '';
-    });
+        preConfigure =
+          old.preConfigure
+          + ''
+            cmakeFlagsArray+=(
+              "-DCMAKE_C_FLAGS_RELEASE=-flto=thin -ffat-lto-objects"
+              "-DCMAKE_CXX_FLAGS_RELEASE=-flto=thin -ffat-lto-objects"
+            )
+          '';
+      }
+    );
 
     xpti = stdenv.mkDerivation (finalAttrs: {
       pname = "xpti";
