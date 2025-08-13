@@ -233,7 +233,9 @@ in
         (lib.cmakeBool "MLIR_INCLUDE_TESTS" buildTests)
         (lib.cmakeBool "SYCL_INCLUDE_TESTS" buildTests)
 
+        # !!! TODO
         (lib.cmakeBool "LLVM_BUILD_LLVM_DYLIB" true)
+        (lib.cmakeBool "BUILD_SHARED_LIBS" false)
 
         (lib.cmakeBool "FETCHCONTENT_FULLY_DISCONNECTED" true)
         (lib.cmakeBool "FETCHCONTENT_QUIET" false)

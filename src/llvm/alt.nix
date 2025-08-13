@@ -49,13 +49,57 @@
       buildTests
       ;
   };
-  src = fetchFromGitHub {
+  srcOrig = fetchFromGitHub {
     owner = "intel";
     repo = "llvm";
     # tag = "sycl-web/sycl-latest-good";
     rev = "0e0984eec8008f4f6cb8b3bf6c2811f0dd8faa94";
     hash = "sha256-AkAwc7JjvDcuXq5lGavnUsE8GKfiPV5CCR18InPl8ws=";
   };
+  src = runCommand "intel-llvm-src-fixed-${version}" {} ''
+    cp -r ${srcOrig} $out
+    chmod -R u+w $out
+
+    # The latter is used everywhere except this one file. For some reason,
+    # the former is not set, at least when building with Nix, so we replace it.
+    # See also: github.com/intel/llvm/pull/19637
+    substituteInPlace $out/unified-runtime/cmake/helpers.cmake \
+      --replace-fail "PYTHON_EXECUTABLE" "Python3_EXECUTABLE"
+
+    # When running without this, their CMake code copies files from the Nix store.
+    # As the Nix store is read-only and COPY copies permissions by default,
+    # this will lead to the copied files also being read-only.
+    # As CMake at a later point wants to write into copied folders, this causes
+    # the build to fail with a (rather cryptic) permission error.
+    # By setting NO_SOURCE_PERMISSIONS we side-step this issue.
+    # Note in case of future build failures: if there are executables in any of the copied folders,
+    # we may need to add special handling to set the executable permissions.
+    # See also: https://github.com/intel/llvm/issues/19635#issuecomment-3134830708
+    sed -i '/file(COPY / { /NO_SOURCE_PERMISSIONS/! s/)\s*$/ NO_SOURCE_PERMISSIONS)/ }' \
+      $out/unified-runtime/cmake/FetchLevelZero.cmake
+      #$out/sycl/CMakeLists.txt \
+      #$out/sycl/cmake/modules/FetchEmhash.cmake \
+
+    # Parts of libdevice are built using the freshly-built compiler.
+    # As it tries to link to system libraries, we need to wrap it with the
+    # usual nix cc-wrapper.
+    # Since the compiler to be wrapped is not available at this point,
+    # we use a stub that points to where it will be later on
+    # in `/build/source/build/bin/clang-21`
+    # Note: both nix and bash try to expand clang_exe here, so double-escape it
+    #substituteInPlace libdevice/cmake/modules/SYCLLibdevice.cmake \
+    #  --replace-fail "\''${clang_exe}" "$ {ccWrapperStub}/bin/clang++"
+
+    # Some libraries check for the version of the compiler.
+    # For some reason, this version is determined by the
+    # date of compilation. As the nix sandbox tells CMake
+    # it's running at Unix epoch, this will always result in
+    # a waaaay too old version.
+    # To avoid this, we set the version to a fixed value.
+    # See also: https://github.com/intel/llvm/issues/19692
+    substituteInPlace $out/sycl/CMakeLists.txt \
+      --replace-fail 'string(TIMESTAMP __SYCL_COMPILER_VERSION "%Y%m%d")' 'set(__SYCL_COMPILER_VERSION "${date}")'
+  '';
   llvmPackages = llvmPackages_21;
   spirv-llvm-translator' = spirv-llvm-translator.override {
     inherit (llvmPackages) llvm;
@@ -67,8 +111,9 @@
   pkgs = llvmPackages.override (old: {
     # version = "todo";
     inherit stdenv;
+    #inherit src;
 
-    version = "21.0.0-${src.rev}";
+    version = "21.0.0-${srcOrig.rev}";
 
     officialRelease = {};
 
@@ -77,200 +122,216 @@
     doCheck = false;
 
     enableSharedLibraries = false;
+
+    buildLlvmTools.tblgen = pkgs.tblgen.overrideAttrs (old: {
+      buildInputs = (old.buildInputs or []) ++ [vc-intrinsics];
+    });
   });
-in rec {
-  llvm = pkgs.llvm.overrideAttrs (old: {
-    # inherit src;
-    src = runCommand "llvm-src-${version}" {inherit (src) passthru;} ''
-      mkdir -p "$out"
-      cp -r ${src}/llvm "$out"
-      cp -r ${src}/cmake "$out"
-      cp -r ${src}/third-party "$out"
-      cp -r ${src}/libc "$out"
+in
+  pkgs
+  // rec {
+    tblgen = pkgs.tblgen.overrideAttrs (old: {
+      buildInputs = (old.buildInputs or []) ++ [vc-intrinsics];
+    });
+    llvm = pkgs.llvm.overrideAttrs (old: {
+      # inherit src;
+      src = runCommand "llvm-src-${version}" {inherit (src) passthru;} ''
+        mkdir -p "$out"
+        cp -r ${src}/llvm "$out"
+        cp -r ${src}/cmake "$out"
+        cp -r ${src}/third-party "$out"
+        cp -r ${src}/libc "$out"
 
-      cp -r ${src}/sycl "$out"
-      # cp -r ${src}/unified-runtime "$out"
+        cp -r ${src}/sycl "$out"
+        # cp -r ${src}/unified-runtime "$out"
 
-      chmod u+w "$out/llvm/tools"
-      cp -r ${src}/polly "$out/llvm/tools"
-    '';
+        chmod u+w "$out/llvm/tools"
+        cp -r ${src}/polly "$out/llvm/tools"
+      '';
 
-    buildInputs =
-      old.buildInputs
-      ++ [
-        stdenv.cc.cc.lib
+      buildInputs =
+        old.buildInputs
+        ++ [
+          stdenv.cc.cc.lib
+          zlib
+          zstd
+
+          hwloc
+          #spirv-llvm-translator'
+          # spirv-tools
+
+          vc-intrinsics
+
+          # Not sure if this is needed
+          #intel-compute-runtime
+          # llvmPackages_21.bintools
+        ]
+        ++ unified-runtime'.buildInputs;
+
+      propagatedBuildInputs = [
         zlib
-        zstd
-
         hwloc
-        #spirv-llvm-translator'
-        # spirv-tools
+      ];
 
-        vc-intrinsics
+      cmakeFlags =
+        old.cmakeFlags
+        ++ [
+          # "-DCMAKE_BUILD_TYPE=Release"
+          # "-DLLVM_ENABLE_ZSTD=FORCE_ON"
+          # This is broken. TODO: Fix
+          # "-DLLVM_ENABLE_ZLIB=FORCE_ON"
+          # "-DLLVM_ENABLE_THREADS=ON"
+          # "-DLLVM_ENABLE_LTO=Thin"
+          # "-DLLVM_USE_LINKER=lld"
 
-        # Not sure if this is needed
-        #intel-compute-runtime
-        # llvmPackages_21.bintools
-      ]
-      ++ unified-runtime'.buildInputs;
+          (lib.cmakeBool "BUILD_SHARED_LIBS" false)
+          (lib.cmakeBool "LLVM_LINK_LLVM_DYLIB" false)
+          (lib.cmakeBool "LLVM_BUILD_LLVM_DYLIB" false)
 
-    cmakeFlags =
-      old.cmakeFlags
-      ++ [
-        # "-DCMAKE_BUILD_TYPE=Release"
-        # "-DLLVM_ENABLE_ZSTD=FORCE_ON"
-        # This is broken. TODO: Fix
-        # "-DLLVM_ENABLE_ZLIB=FORCE_ON"
-        # "-DLLVM_ENABLE_THREADS=ON"
-        # "-DLLVM_ENABLE_LTO=Thin"
-        # "-DLLVM_USE_LINKER=lld"
+          # (lib.cmakeBool "LLVM_ENABLE_LIBCXX" useLibcxx)
+          # (lib.cmakeFeature "CLANG_DEFAULT_CXX_STDLIB" (if useLibcxx then "libc++" else "libstdc++"))
 
-        (lib.cmakeBool "BUILD_SHARED_LIBS" true)
+          (lib.cmakeBool "FETCHCONTENT_FULLY_DISCONNECTED" true)
+          (lib.cmakeBool "FETCHCONTENT_QUIET" false)
 
-        # (lib.cmakeBool "LLVM_ENABLE_LIBCXX" useLibcxx)
-        # (lib.cmakeFeature "CLANG_DEFAULT_CXX_STDLIB" (if useLibcxx then "libc++" else "libstdc++"))
+          #(lib.cmakeFeature "LLVMGenXIntrinsics_SOURCE_DIR" "${deps.vc-intrinsics}")
+          (lib.cmakeFeature "LLVM_EXTERNAL_SPIRV_HEADERS_SOURCE_DIR" "${spirv-headers.src}")
 
-        (lib.cmakeBool "FETCHCONTENT_FULLY_DISCONNECTED" true)
-        (lib.cmakeBool "FETCHCONTENT_QUIET" false)
+          (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_EMHASH" "${deps.emhash}")
+          (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_PARALLEL-HASHMAP" "${deps.parallel-hashmap}")
 
-        #(lib.cmakeFeature "LLVMGenXIntrinsics_SOURCE_DIR" "${deps.vc-intrinsics}")
-        (lib.cmakeFeature "LLVM_EXTERNAL_SPIRV_HEADERS_SOURCE_DIR" "${spirv-headers.src}")
+          # These can be switched over to nixpkgs versions once they're updated
+          # See: https://github.com/NixOS/nixpkgs/pull/428558
+          (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_OCL-HEADERS" "${deps.opencl-headers}")
+          (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_OCL-ICD" "${deps.opencl-icd-loader}")
 
+          (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_ONEAPI-CK" "${deps.oneapi-ck}")
+
+          #"-DLLVM_EXTERNAL_PROJECTS=sycl;llvm-spirv;opencl;xpti;xptifw;libdevice;sycl-jit"
+          # "-DLLVM_EXTERNAL_PROJECTS=sycl;llvm-spirv;opencl;sycl-jit"
+          # "-DLLVM_EXTERNAL_SYCL_SOURCE_DIR=/build/source/sycl"
+          # "-DLLVM_EXTERNAL_LLVM_SPIRV_SOURCE_DIR=/build/source/llvm-spirv"
+          #"-DLLVM_EXTERNAL_XPTI_SOURCE_DIR=/build/source/xpti"
+          #"-DXPTI_SOURCE_DIR=/build/source/xpti"
+          #"-DLLVM_EXTERNAL_XPTIFW_SOURCE_DIR=/build/source/xptifw"
+          #"-DLLVM_EXTERNAL_LIBDEVICE_SOURCE_DIR=/build/source/libdevice"
+          # "-DLLVM_EXTERNAL_SYCL_JIT_SOURCE_DIR=/build/source/sycl-jit"
+          #"-DLLVM_ENABLE_PROJECTS=clang\;sycl\;llvm-spirv\;opencl\;xpti\;xptifw\;libdevice\;sycl-jit\;libclc\;lld"
+          # "-DLLVM_ENABLE_PROJECTS=sycl;llvm-spirv;opencl;sycl-jit"
+
+          # (if pkgs.stdenv.cc.isClang then throw "hiii" else "")
+        ]
+        # ++ lib.optionals pkgs.stdenv.cc.isClang [
+        #   # (lib.cmakeFeature "CMAKE_C_FLAGS_RELEASE" "-flto=thin\\\\ -ffat-lto-objects")
+        #   # (lib.cmakeFeature "CMAKE_CXX_FLAGS_RELEASE" "-flto=thin\\\\ -ffat-lto-objects")
+        #   "-DCMAKE_C_FLAGS_RELEASE=-flto=thin -ffat-lto-objects"
+        #   "-DCMAKE_CXX_FLAGS_RELEASE=-flto=thin -ffat-lto-objects"
+        # ]
+        ++ unified-runtime'.cmakeFlags
+        ++ ["-DUR_ENABLE_TRACING=OFF"];
+
+      # postPatch =
+      #   old.postPatch
+      #   + ''
+      #     # The latter is used everywhere except this one file. For some reason,
+      #     # the former is not set, at least when building with Nix, so we replace it.
+      #     # See also: github.com/intel/llvm/pull/19637
+      #     # substituteInPlace ../unified-runtime/cmake/helpers.cmake \
+      #     #   --replace-fail "PYTHON_EXECUTABLE" "Python3_EXECUTABLE"
+      #
+      #       chmod -R u+w ../sycl
+      #
+      #       # When running without this, their CMake code copies files from the Nix store.
+      #       # As the Nix store is read-only and COPY copies permissions by default,
+      #       # this will lead to the copied files also being read-only.
+      #       # As CMake at a later point wants to write into copied folders, this causes
+      #       # the build to fail with a (rather cryptic) permission error.
+      #       # By setting NO_SOURCE_PERMISSIONS we side-step this issue.
+      #       # Note in case of future build failures: if there are executables in any of the copied folders,
+      #       # we may need to add special handling to set the executable permissions.
+      #       # See also: https://github.com/intel/llvm/issues/19635#issuecomment-3134830708
+      #       sed -i '/file(COPY / { /NO_SOURCE_PERMISSIONS/! s/)\s*$/ NO_SOURCE_PERMISSIONS)/ }' \
+      #         ../sycl/CMakeLists.txt \
+      #         ../sycl/cmake/modules/FetchEmhash.cmake \
+      #         # ../unified-runtime/cmake/FetchLevelZero.cmake
+      #
+      #       # Parts of libdevice are built using the freshly-built compiler.
+      #       # As it tries to link to system libraries, we need to wrap it with the
+      #       # usual nix cc-wrapper.
+      #       # Since the compiler to be wrapped is not available at this point,
+      #       # we use a stub that points to where it will be later on
+      #       # in `/build/source/build/bin/clang-21`
+      #       # Note: both nix and bash try to expand clang_exe here, so double-escape it
+      #       #substituteInPlace libdevice/cmake/modules/SYCLLibdevice.cmake \
+      #       #  --replace-fail "\''${clang_exe}" "$ {ccWrapperStub}/bin/clang++"
+      #
+      #       # Some libraries check for the version of the compiler.
+      #       # For some reason, this version is determined by the
+      #       # date of compilation. As the nix sandbox tells CMake
+      #       # it's running at Unix epoch, this will always result in
+      #       # a waaaay too old version.
+      #       # To avoid this, we set the version to a fixed value.
+      #       # See also: https://github.com/intel/llvm/issues/19692
+      #       substituteInPlace ../sycl/CMakeLists.txt \
+      #         --replace-fail 'string(TIMESTAMP __SYCL_COMPILER_VERSION "%Y%m%d")' 'set(__SYCL_COMPILER_VERSION "${date}")'
+      #     '';
+
+      preConfigure =
+        old.preConfigure
+        + ''
+          cmakeFlagsArray+=(
+            "-DCMAKE_C_FLAGS_RELEASE=-flto=thin -ffat-lto-objects"
+            "-DCMAKE_CXX_FLAGS_RELEASE=-flto=thin -ffat-lto-objects"
+          )
+        '';
+    });
+
+    xpti = stdenv.mkDerivation (finalAttrs: {
+      pname = "xpti";
+      inherit version;
+
+      src = runCommand "xpti-src-${version}" {inherit (src) passthru;} ''
+        mkdir -p "$out"
+        cp -r ${src}/xpti "$out"
+        # cp -r ${src}/xptifw "$out"
+      '';
+
+      sourceRoot = "${finalAttrs.src.name}/xpti";
+
+      nativeBuildInputs = [
+        cmake
+        ninja
+      ];
+    });
+
+    xptifw = stdenv.mkDerivation (finalAttrs: {
+      pname = "xptifw";
+      inherit version;
+
+      src = runCommand "xptifw-src-${version}" {inherit (src) passthru;} ''
+        mkdir -p "$out"
+        cp -r ${src}/xptifw "$out"
+
+        mkdir -p "$out/sycl/cmake/modules"
+        cp -r ${src}/sycl/cmake/modules/FetchEmhash.cmake "$out/sycl/cmake/modules"
+      '';
+
+      sourceRoot = "${finalAttrs.src.name}/xptifw";
+
+      nativeBuildInputs = [
+        cmake
+        ninja
+      ];
+
+      buildInputs = [
+        parallel-hashmap
+        xpti
+      ];
+
+      # TODO
+      cmakeFlags = [
         (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_EMHASH" "${deps.emhash}")
-        (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_PARALLEL-HASHMAP" "${deps.parallel-hashmap}")
-
-        # These can be switched over to nixpkgs versions once they're updated
-        # See: https://github.com/NixOS/nixpkgs/pull/428558
-        (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_OCL-HEADERS" "${deps.opencl-headers}")
-        (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_OCL-ICD" "${deps.opencl-icd-loader}")
-
-        (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_ONEAPI-CK" "${deps.oneapi-ck}")
-
-        #"-DLLVM_EXTERNAL_PROJECTS=sycl;llvm-spirv;opencl;xpti;xptifw;libdevice;sycl-jit"
-        #"-DLLVM_EXTERNAL_PROJECTS=sycl;llvm-spirv;opencl;sycl-jit"
-        #"-DLLVM_EXTERNAL_SYCL_SOURCE_DIR=/build/source/sycl"
-        #"-DLLVM_EXTERNAL_LLVM_SPIRV_SOURCE_DIR=/build/source/llvm-spirv"
-        #"-DLLVM_EXTERNAL_XPTI_SOURCE_DIR=/build/source/xpti"
-        #"-DXPTI_SOURCE_DIR=/build/source/xpti"
-        #"-DLLVM_EXTERNAL_XPTIFW_SOURCE_DIR=/build/source/xptifw"
-        #"-DLLVM_EXTERNAL_LIBDEVICE_SOURCE_DIR=/build/source/libdevice"
-        #"-DLLVM_EXTERNAL_SYCL_JIT_SOURCE_DIR=/build/source/sycl-jit"
-        #"-DLLVM_ENABLE_PROJECTS=clang\;sycl\;llvm-spirv\;opencl\;xpti\;xptifw\;libdevice\;sycl-jit\;libclc\;lld"
-        #"-DLLVM_ENABLE_PROJECTS=sycl;llvm-spirv;opencl;sycl-jit"
-
-        # (if pkgs.stdenv.cc.isClang then throw "hiii" else "")
-      ]
-      # ++ lib.optionals pkgs.stdenv.cc.isClang [
-      #   # (lib.cmakeFeature "CMAKE_C_FLAGS_RELEASE" "-flto=thin\\\\ -ffat-lto-objects")
-      #   # (lib.cmakeFeature "CMAKE_CXX_FLAGS_RELEASE" "-flto=thin\\\\ -ffat-lto-objects")
-      #   "-DCMAKE_C_FLAGS_RELEASE=-flto=thin -ffat-lto-objects"
-      #   "-DCMAKE_CXX_FLAGS_RELEASE=-flto=thin -ffat-lto-objects"
-      # ]
-      ++ unified-runtime'.cmakeFlags
-      ++ ["-DUR_ENABLE_TRACING=OFF"];
-
-    postPatch =
-      old.postPatch
-      + ''
-        # The latter is used everywhere except this one file. For some reason,
-        # the former is not set, at least when building with Nix, so we replace it.
-        # See also: github.com/intel/llvm/pull/19637
-        # substituteInPlace ../unified-runtime/cmake/helpers.cmake \
-        #   --replace-fail "PYTHON_EXECUTABLE" "Python3_EXECUTABLE"
-
-        chmod -R u+w ../sycl
-
-        # When running without this, their CMake code copies files from the Nix store.
-        # As the Nix store is read-only and COPY copies permissions by default,
-        # this will lead to the copied files also being read-only.
-        # As CMake at a later point wants to write into copied folders, this causes
-        # the build to fail with a (rather cryptic) permission error.
-        # By setting NO_SOURCE_PERMISSIONS we side-step this issue.
-        # Note in case of future build failures: if there are executables in any of the copied folders,
-        # we may need to add special handling to set the executable permissions.
-        # See also: https://github.com/intel/llvm/issues/19635#issuecomment-3134830708
-        sed -i '/file(COPY / { /NO_SOURCE_PERMISSIONS/! s/)\s*$/ NO_SOURCE_PERMISSIONS)/ }' \
-          ../sycl/CMakeLists.txt \
-          ../sycl/cmake/modules/FetchEmhash.cmake \
-          # ../unified-runtime/cmake/FetchLevelZero.cmake
-
-        # Parts of libdevice are built using the freshly-built compiler.
-        # As it tries to link to system libraries, we need to wrap it with the
-        # usual nix cc-wrapper.
-        # Since the compiler to be wrapped is not available at this point,
-        # we use a stub that points to where it will be later on
-        # in `/build/source/build/bin/clang-21`
-        # Note: both nix and bash try to expand clang_exe here, so double-escape it
-        #substituteInPlace libdevice/cmake/modules/SYCLLibdevice.cmake \
-        #  --replace-fail "\''${clang_exe}" "$ {ccWrapperStub}/bin/clang++"
-
-        # Some libraries check for the version of the compiler.
-        # For some reason, this version is determined by the
-        # date of compilation. As the nix sandbox tells CMake
-        # it's running at Unix epoch, this will always result in
-        # a waaaay too old version.
-        # To avoid this, we set the version to a fixed value.
-        # See also: https://github.com/intel/llvm/issues/19692
-        substituteInPlace ../sycl/CMakeLists.txt \
-          --replace-fail 'string(TIMESTAMP __SYCL_COMPILER_VERSION "%Y%m%d")' 'set(__SYCL_COMPILER_VERSION "${date}")'
-      '';
-
-    preConfigure =
-      old.preConfigure
-      + ''
-        cmakeFlagsArray+=(
-          "-DCMAKE_C_FLAGS_RELEASE=-flto=thin -ffat-lto-objects"
-          "-DCMAKE_CXX_FLAGS_RELEASE=-flto=thin -ffat-lto-objects"
-        )
-      '';
-  });
-
-  xpti = stdenv.mkDerivation (finalAttrs: {
-    pname = "xpti";
-    inherit version;
-
-    src = runCommand "xpti-src-${version}" {inherit (src) passthru;} ''
-      mkdir -p "$out"
-      cp -r ${src}/xpti "$out"
-      # cp -r ${src}/xptifw "$out"
-    '';
-
-    sourceRoot = "${finalAttrs.src.name}/xpti";
-
-    nativeBuildInputs = [
-      cmake
-      ninja
-    ];
-  });
-
-  xptifw = stdenv.mkDerivation (finalAttrs: {
-    pname = "xptifw";
-    inherit version;
-
-    src = runCommand "xptifw-src-${version}" {inherit (src) passthru;} ''
-      mkdir -p "$out"
-      cp -r ${src}/xptifw "$out"
-
-      mkdir -p "$out/sycl/cmake/modules"
-      cp -r ${src}/sycl/cmake/modules/FetchEmhash.cmake "$out/sycl/cmake/modules"
-    '';
-
-    sourceRoot = "${finalAttrs.src.name}/xptifw";
-
-    nativeBuildInputs = [
-      cmake
-      ninja
-    ];
-
-    buildInputs = [
-      parallel-hashmap
-      xpti
-    ];
-
-    # TODO
-    cmakeFlags = [
-      (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_EMHASH" "${deps.emhash}")
-      (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_PARALLEL-HASHMAP" "${parallel-hashmap.src}")
-    ];
-  });
-}
+        (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_PARALLEL-HASHMAP" "${parallel-hashmap.src}")
+      ];
+    });
+  }
