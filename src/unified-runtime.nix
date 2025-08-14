@@ -108,26 +108,26 @@
           filecheck
         ];
 
-      # src = fetchFromGitHub {
-      #   owner = "oneapi-src";
-      #   repo = "unified-runtime";
-      #   # tag = "v${version}";
-      #   # TODO: Update to a tag once a new release is available
-      #   #       On current latest tag there's build issues that are resolved in later commits,
-      #   #       so we use a newer commit for now.
-      #   rev = "e3e405dde9a68ce45b0f910666d17715a6755489";
-      #   hash = "sha256-BYP+L+SAH9uPLjg+ZxCGQD42MDDp4zV/kuQbD2fuD3U=";
-      # };
-
       src = fetchFromGitHub {
-        owner = "intel";
-        repo = "llvm";
-        # tag = "sycl-web/sycl-latest-good";
-        rev = "8959a5e5a6cebac8993c58c5597638b4510be91f";
-        hash = "sha256-W+TpIeWlpkYpPI43lzI2J3mIIkzb9RtNTKy/0iQHyYI=";
+        owner = "oneapi-src";
+        repo = "unified-runtime";
+        # tag = "v${version}";
+        # TODO: Update to a tag once a new release is available
+        #       On current latest tag there's build issues that are resolved in later commits,
+        #       so we use a newer commit for now.
+        rev = "3bd57a2a8644daf484435ca9296e81410355d3ed";
+        hash = "sha256-goJ5nqI79KwcFP9tq3++WhRAmhDZR5TMEdo6cs2NkEw=";
       };
 
-      sourceRoot = "${finalAttrs.src.name}/unified-runtime";
+      # src = fetchFromGitHub {
+      #   owner = "intel";
+      #   repo = "llvm";
+      #   # tag = "sycl-web/sycl-latest-good";
+      #   rev = "8959a5e5a6cebac8993c58c5597638b4510be91f";
+      #   hash = "sha256-W+TpIeWlpkYpPI43lzI2J3mIIkzb9RtNTKy/0iQHyYI=";
+      # };
+
+      # sourceRoot = "${finalAttrs.src.name}/unified-runtime";
 
       nativeCheckInputs = lib.optionals buildTests [
         ctestCheckHook
