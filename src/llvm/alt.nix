@@ -107,16 +107,8 @@
   llvmPackages = llvmPackages_21;
   # TODO: I'm not sure whether we need to override the src, or if
   # they just vendored upstream without patches.
-  spirv-llvm-translator' =
-    (spirv-llvm-translator.override {
-      inherit (llvmPackages) llvm;
-    }).overrideAttrs
-    (old: {
-      src = runCommand "spirv-llvm-translator-src-${version}" {} ''
-        cp -r ${src}/llvm-spirv $out
-      '';
-    });
   tblgen = pkgs.tblgen.overrideAttrs (old: {
+    # TODO: This is sketchy
     buildInputs = (old.buildInputs or []) ++ [vc-intrinsics];
   });
   stdenv =
@@ -226,13 +218,9 @@ in
             (lib.cmakeBool "FETCHCONTENT_FULLY_DISCONNECTED" true)
             (lib.cmakeBool "FETCHCONTENT_QUIET" false)
 
-            # (lib.cmakeFeature "LLVMGenXIntrinsics_SOURCE_DIR" "${deps.vc-intrinsics}")
             (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_VC-INTRINSICS" "${deps.vc-intrinsics}")
 
             (lib.cmakeFeature "LLVM_EXTERNAL_SPIRV_HEADERS_SOURCE_DIR" "${spirv-headers.src}")
-
-            # (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_EMHASH" "${deps.emhash}")
-            # (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_PARALLEL-HASHMAP" "${deps.parallel-hashmap}")
 
             # These can be switched over to nixpkgs versions once they're updated
             # See: https://github.com/NixOS/nixpkgs/pull/428558
@@ -315,6 +303,19 @@ in
         # '';
       }
     );
+
+    clang-unwrapped = (pkgs.clang-unwrapped.override {libllvm = llvm;}).overrideAttrs (old: {
+      cmakeFlags =
+        (old.cmakeFlags or [])
+        ++ [
+          (lib.cmakeBool "FETCHCONTENT_FULLY_DISCONNECTED" true)
+          (lib.cmakeBool "FETCHCONTENT_QUIET" false)
+
+          (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_VC-INTRINSICS" "${deps.vc-intrinsics}")
+        ];
+    });
+
+    # clang =
 
     xpti = stdenv.mkDerivation (finalAttrs: {
       pname = "xpti";
