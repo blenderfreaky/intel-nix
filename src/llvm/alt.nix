@@ -16,6 +16,7 @@
   spirv-llvm-translator,
   vc-intrinsics,
   emhash,
+  libedit,
   intel-compute-runtime,
   # TODO: llvmPackages.libcxx? libcxxStdenv?
   libcxx,
@@ -30,7 +31,7 @@
   nativeCpuSupport ? false,
   vulkanSupport ? true,
   useLibcxx ? false,
-  useLdd ? false,
+  useLld ? false,
   buildTests ? false,
   buildDocs ? false,
   buildMan ? false,
@@ -171,6 +172,8 @@ in
             zstd
 
             emhash
+
+            libedit
             # zlib
             # hwloc
 
@@ -180,9 +183,13 @@ in
 
             # Not sure if this is needed
             # spirv-llvm-translator'
-            # spirv-tools
             # intel-compute-runtime
-            # llvmPackages_21.bintools
+
+            # For libspirv_dis
+            spirv-tools
+          ]
+          ++ lib.optionals useLld [
+            llvmPackages_21.bintools
           ]
           ++ unified-runtime'.buildInputs;
 
@@ -196,13 +203,11 @@ in
         cmakeFlags =
           old.cmakeFlags
           ++ [
-            # "-DCMAKE_BUILD_TYPE=Release"
-            # "-DLLVM_ENABLE_ZSTD=FORCE_ON"
-            # This is broken. TODO: Fix
-            # "-DLLVM_ENABLE_ZLIB=FORCE_ON"
-            # "-DLLVM_ENABLE_THREADS=ON"
-            # "-DLLVM_ENABLE_LTO=Thin"
-            # "-DLLVM_USE_LINKER=lld"
+            "-DCMAKE_BUILD_TYPE=Release"
+            "-DLLVM_ENABLE_ZSTD=FORCE_ON"
+            "-DLLVM_ENABLE_ZLIB=FORCE_ON"
+            "-DLLVM_ENABLE_THREADS=ON"
+            "-DLLVM_ENABLE_LTO=Thin"
 
             (lib.cmakeBool "BUILD_SHARED_LIBS" false)
             # TODO: configure fails when these are true, but I've no idea why
@@ -259,15 +264,17 @@ in
           #   "-DCMAKE_C_FLAGS_RELEASE=-flto=thin -ffat-lto-objects"
           #   "-DCMAKE_CXX_FLAGS_RELEASE=-flto=thin -ffat-lto-objects"
           # ]
+          ++ lib.optional useLld (lib.cmakeFeature "LLVM_USE_LINKER" "lld")
           ++ unified-runtime'.cmakeFlags
-          ++ ["-DUR_ENABLE_TRACING=OFF"];
+          # ++ ["-DUR_ENABLE_TRACING=OFF"]
+          ;
 
         preConfigure =
           old.preConfigure
           + ''
             cmakeFlagsArray+=(
-              "-DCMAKE_C_FLAGS_RELEASE=-flto=thin -ffat-lto-objects"
-              "-DCMAKE_CXX_FLAGS_RELEASE=-flto=thin -ffat-lto-objects"
+              "-DCMAKE_C_FLAGS_RELEASE=-O3 -DNDEBUG -march=skylake -mtune=znver3 -flto=thin -ffat-lto-objects"
+              "-DCMAKE_CXX_FLAGS_RELEASE=-O3 -DNDEBUG -march=skylake -mtune=znver3 -flto=thin -ffat-lto-objects"
             )
           '';
       }
