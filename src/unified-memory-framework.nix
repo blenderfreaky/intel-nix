@@ -28,7 +28,7 @@
   version = "1.0.0";
   tag = "v${version}";
   # This needs to be vendored, as they don't support using a pre-built version
-  # and they compile with specific flags that the nixpkgs version doesn't set
+  # and they compile with specific flags that the nixpkgs version doesn't (and shouldn't) set
   jemalloc = fetchFromGitHub {
     owner = "jemalloc";
     repo = "jemalloc";

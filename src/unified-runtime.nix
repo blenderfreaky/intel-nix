@@ -16,10 +16,12 @@
   vulkan-loader,
   autoAddDriverRunpath,
   level-zero,
+  intel-compute-runtime,
   opencl-headers,
   ocl-icd,
   hdr-histogram,
   gtest,
+  pkg-config,
   levelZeroSupport ? true,
   openclSupport ? true,
   # Broken
@@ -32,15 +34,17 @@
   lit,
   filecheck,
   ctestCheckHook,
+  callPackage,
 }: let
   version = "0.12.0";
   # TODO: intel-compute-runtime.src
-  compute-runtime = fetchFromGitHub {
-    owner = "intel";
-    repo = "compute-runtime";
-    tag = "25.05.32567.17";
-    sha256 = "sha256-/9UQJ5Ng2ip+3cNcVZOtKAmnx4LpmPja+aTghIqF1bc=";
-  };
+  # compute-runtime = fetchFromGitHub {
+  #   owner = "intel";
+  #   repo = "compute-runtime";
+  #   tag = "25.05.32567.17";
+  #   sha256 = "sha256-/9UQJ5Ng2ip+3cNcVZOtKAmnx4LpmPja+aTghIqF1bc=";
+  # };
+  deps = callPackage ./llvm/deps.nix {};
   rocmtoolkit_joined = symlinkJoin {
     name = "rocm-merged";
 
@@ -54,15 +58,20 @@
   };
 
   make = buildTests:
-    stdenv.mkDerivation {
+    stdenv.mkDerivation (finalAttrs: {
       name = "unified-runtime";
       inherit version;
 
-      nativeBuildInputs = [
-        cmake
-        ninja
-        python3
-      ];
+      nativeBuildInputs =
+        [
+          cmake
+          ninja
+          python3
+        ]
+        ++ lib.optionals levelZeroSupport [
+          # Only needed to find level-zero
+          pkg-config
+        ];
 
       buildInputs =
         [
@@ -87,6 +96,7 @@
         ]
         ++ lib.optionals levelZeroSupport [
           level-zero
+          intel-compute-runtime
         ]
         ++ lib.optionals vulkanSupport [
           vulkan-headers
@@ -98,16 +108,26 @@
           filecheck
         ];
 
+      # src = fetchFromGitHub {
+      #   owner = "oneapi-src";
+      #   repo = "unified-runtime";
+      #   # tag = "v${version}";
+      #   # TODO: Update to a tag once a new release is available
+      #   #       On current latest tag there's build issues that are resolved in later commits,
+      #   #       so we use a newer commit for now.
+      #   rev = "e3e405dde9a68ce45b0f910666d17715a6755489";
+      #   hash = "sha256-BYP+L+SAH9uPLjg+ZxCGQD42MDDp4zV/kuQbD2fuD3U=";
+      # };
+
       src = fetchFromGitHub {
-        owner = "oneapi-src";
-        repo = "unified-runtime";
-        # tag = "v${version}";
-        # TODO: Update to a tag once a new release is available
-        #       On current latest tag there's build issues that are resolved in later commits,
-        #       so we use a newer commit for now.
-        rev = "e3e405dde9a68ce45b0f910666d17715a6755489";
-        hash = "sha256-BYP+L+SAH9uPLjg+ZxCGQD42MDDp4zV/kuQbD2fuD3U=";
+        owner = "intel";
+        repo = "llvm";
+        # tag = "sycl-web/sycl-latest-good";
+        rev = "8959a5e5a6cebac8993c58c5597638b4510be91f";
+        hash = "sha256-W+TpIeWlpkYpPI43lzI2J3mIIkzb9RtNTKy/0iQHyYI=";
       };
+
+      sourceRoot = "${finalAttrs.src.name}/unified-runtime";
 
       nativeCheckInputs = lib.optionals buildTests [
         ctestCheckHook
@@ -123,7 +143,7 @@
         # As the source files of level zero point to the nix store, those permissions will make it non-writable.
         # The build will try to write new files into directories that are now read-only.
         # To avoid this, we set NO_SOURCE_PERMISSIONS.
-        sed -i '/file(COPY / { /NO_SOURCE_PERMISSIONS/! s/)\s*$/ NO_SOURCE_PERMISSIONS)/ }' cmake/FetchLevelZero.cmake
+        # sed -i '/file(COPY / { /NO_SOURCE_PERMISSIONS/! s/)\s*$/ NO_SOURCE_PERMISSIONS)/ }' cmake/FetchLevelZero.cmake
       '';
 
       # preConfigure = ''
@@ -139,19 +159,22 @@
 
           (lib.cmakeBool "UR_ENABLE_LATENCY_HISTOGRAM" true)
 
-          (lib.cmakeBool "UR_COMPUTE_RUNTIME_FETCH_REPO" false)
-          (lib.cmakeFeature "UR_COMPUTE_RUNTIME_REPO" "${compute-runtime}")
+          # (lib.cmakeBool "UR_COMPUTE_RUNTIME_FETCH_REPO" false)
+          # (lib.cmakeFeature "UR_COMPUTE_RUNTIME_REPO" "${compute-runtime}")
 
           (lib.cmakeBool "UR_BUILD_EXAMPLES" buildTests)
           (lib.cmakeBool "UR_BUILD_TESTS" buildTests)
 
           (lib.cmakeBool "UR_BUILD_ADAPTER_L0" levelZeroSupport)
-          (lib.cmakeBool "UR_BUILD_ADAPTER_L0_V2" false)
+          (lib.cmakeBool "UR_BUILD_ADAPTER_L0_V2" levelZeroSupport)
           (lib.cmakeBool "UR_BUILD_ADAPTER_OPENCL" openclSupport)
           (lib.cmakeBool "UR_BUILD_ADAPTER_CUDA" cudaSupport)
           (lib.cmakeBool "UR_BUILD_ADAPTER_HIP" rocmSupport)
           (lib.cmakeBool "UR_BUILD_ADAPTER_NATIVE_CPU" nativeCpuSupport)
           # (lib.cmakeBool "UR_BUILD_ADAPTER_ALL" false)
+
+          (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_OCL-HEADERS" "${deps.opencl-headers}")
+          (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_OCL-ICD" "${deps.opencl-icd-loader}")
         ]
         ++ lib.optionals cudaSupport [
           (lib.cmakeFeature "CUDA_TOOLKIT_ROOT_DIR" "${cudaPackages.cudatoolkit}")
@@ -163,16 +186,16 @@
           (lib.cmakeFeature "UR_HIP_ROCM_DIR" "${rocmtoolkit_joined}")
           # (lib.cmakeFeature "UR_HIP_ROCM_DIR" "${rocmPackages.rocmPath}")
           (lib.cmakeFeature "AMDGPU_TARGETS" rocmGpuTargets)
-        ]
-        ++ lib.optionals levelZeroSupport [
-          (lib.cmakeFeature "UR_LEVEL_ZERO_INCLUDE_DIR" "${lib.getInclude level-zero}/include/level_zero")
-          (lib.cmakeFeature "UR_LEVEL_ZERO_LOADER_LIBRARY" "${lib.getLib level-zero}/lib/libze_loader.so")
-        ]
-        ++ lib.optionals buildTests [
-          (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_GOOGLETEST" "${gtest}")
+          # ]
+          # ++ lib.optionals levelZeroSupport [
+          #   (lib.cmakeFeature "UR_LEVEL_ZERO_INCLUDE_DIR" "${lib.getInclude level-zero}/include/level_zero")
+          #   (lib.cmakeFeature "UR_LEVEL_ZERO_LOADER_LIBRARY" "${lib.getLib level-zero}/lib/libze_loader.so")
+          # ]
+          # ++ lib.optionals buildTests [
+          #   (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_GOOGLETEST" "${gtest}")
         ];
 
       passthru.tests = make true;
-    };
+    });
 in
   make buildTests

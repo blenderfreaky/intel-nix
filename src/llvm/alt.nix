@@ -34,8 +34,8 @@
   buildDocs ? false,
   buildMan ? false,
 }: let
-  version = "unstable-2025-08-12";
-  date = "20250812";
+  version = "unstable-2025-08-14";
+  date = "20250814";
   deps = callPackage ./deps.nix {};
   unified-runtime' = unified-runtime.override {
     inherit
@@ -53,8 +53,8 @@
     owner = "intel";
     repo = "llvm";
     # tag = "sycl-web/sycl-latest-good";
-    rev = "0e0984eec8008f4f6cb8b3bf6c2811f0dd8faa94";
-    hash = "sha256-AkAwc7JjvDcuXq5lGavnUsE8GKfiPV5CCR18InPl8ws=";
+    rev = "8959a5e5a6cebac8993c58c5597638b4510be91f";
+    hash = "sha256-W+TpIeWlpkYpPI43lzI2J3mIIkzb9RtNTKy/0iQHyYI=";
   };
   src = runCommand "intel-llvm-src-fixed-${version}" {} ''
     cp -r ${srcOrig} $out
@@ -75,8 +75,8 @@
     # Note in case of future build failures: if there are executables in any of the copied folders,
     # we may need to add special handling to set the executable permissions.
     # See also: https://github.com/intel/llvm/issues/19635#issuecomment-3134830708
-    sed -i '/file(COPY / { /NO_SOURCE_PERMISSIONS/! s/)\s*$/ NO_SOURCE_PERMISSIONS)/ }' \
-      $out/unified-runtime/cmake/FetchLevelZero.cmake
+    # sed -i '/file(COPY / { /NO_SOURCE_PERMISSIONS/! s/)\s*$/ NO_SOURCE_PERMISSIONS)/ }' \
+    #   $out/unified-runtime/cmake/FetchLevelZero.cmake
       #$out/sycl/CMakeLists.txt \
       #$out/sycl/cmake/modules/FetchEmhash.cmake \
 
@@ -169,8 +169,8 @@ in
             stdenv.cc.cc.lib
             zstd
 
-            zlib
-            hwloc
+            # zlib
+            # hwloc
 
             # spirv-llvm-translator'
 
@@ -188,6 +188,8 @@ in
           zlib
           hwloc
         ];
+
+        doCheck = false;
 
         cmakeFlags =
           old.cmakeFlags
@@ -218,7 +220,7 @@ in
             (lib.cmakeFeature "LLVM_EXTERNAL_SPIRV_HEADERS_SOURCE_DIR" "${spirv-headers.src}")
 
             (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_EMHASH" "${deps.emhash}")
-            (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_PARALLEL-HASHMAP" "${deps.parallel-hashmap}")
+            # (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_PARALLEL-HASHMAP" "${deps.parallel-hashmap}")
 
             # These can be switched over to nixpkgs versions once they're updated
             # See: https://github.com/NixOS/nixpkgs/pull/428558

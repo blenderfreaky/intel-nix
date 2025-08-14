@@ -6,13 +6,13 @@
 }:
 stdenv.mkDerivation {
   pname = "emhash";
-  version = "todo";
+  version = "unstable-2025-08-10";
 
   src = fetchFromGitHub {
     owner = "ktprime";
     repo = "emhash";
-    rev = "3ba9abdfdc2e0430fcc2fd8993cad31945b6a02b";
-    sha256 = "sha256-w/iW5n9BzdiieZfxnVBF5MJTpHtZoWCUomjZ0h4OGH8=";
+    rev = "4867731d6f631e63deb99278f1dccfc7b01783b6";
+    hash = "sha256-TUQGxN86nf88eU2AtRVMycTLhGavxTP7el+icDe2iaY=";
   };
 
   nativeBuildInputs = [
@@ -20,5 +20,15 @@ stdenv.mkDerivation {
     # ninja
   ];
 
-  cmakeFlags = ["-DCMAKE_CXX_FLAGS='-msse4.1'"];
+  cmakeFlags = [
+    "-DCMAKE_CXX_FLAGS='-msse4.1'"
+    "-DWITH_BENCHMARKS=Off"
+  ];
+  #
+  # dontBuild = true;
+
+  # installPhase = ''
+  #   mkdir -p $out
+  #   cp emhash $out/bin/
+  # '';
 }
