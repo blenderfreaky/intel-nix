@@ -17,6 +17,7 @@
   vc-intrinsics,
   emhash,
   libedit,
+  tree,
   intel-compute-runtime,
   # TODO: llvmPackages.libcxx? libcxxStdenv?
   libcxx,
@@ -289,11 +290,15 @@ in
 
               echo "searchmarker 123123123"
               ls $out/include
+              ${tree}/bin/tree $out
               echo ------------
               ls $dev/include
               echo ------------
 
-              mv $out/include/* $dev/include/
+              mv $out/include/LLVMSPIRVLib $dev/include/
+              mv $out/include/llvm/ExecutionEngine $dev/include/llvm/ExecutionEngine/
+              mv $out/include/llvm/SYCLLowerIR $dev/include/llvm/SYCLLowerIR/
+              # mv $out/include/llvm/* $dev/include/llvm
               # Remove the now-empty directory so fixupPhase doesn't see it
               rmdir $out/include
             fi
