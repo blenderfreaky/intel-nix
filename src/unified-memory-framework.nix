@@ -18,7 +18,7 @@
   cudaSupport ? false,
   levelZeroSupport ? true,
   ctestCheckHook,
-  buildTests ? true,
+  buildTests ? false,
   gtest,
   gbenchmark,
   python3,
@@ -105,9 +105,11 @@ in
         --replace-fail "git describe --always" "echo ${tag}"
     '';
 
+    # Autoconf wants to write files, so we copy the source to the build directory
+    # where we can make it writable
     preConfigure = lib.optionalString useJemalloc ''
       cp -r ${jemalloc} /build/jemalloc
-      chmod u+w /build/jemalloc
+      chmod -R u+w /build/jemalloc
     '';
 
     cmakeFlags = [
