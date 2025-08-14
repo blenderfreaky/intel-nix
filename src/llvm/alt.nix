@@ -15,6 +15,7 @@
   spirv-tools,
   spirv-llvm-translator,
   vc-intrinsics,
+  emhash,
   intel-compute-runtime,
   # TODO: llvmPackages.libcxx? libcxxStdenv?
   libcxx,
@@ -169,6 +170,7 @@ in
             stdenv.cc.cc.lib
             zstd
 
+            emhash
             # zlib
             # hwloc
 
@@ -219,7 +221,7 @@ in
 
             (lib.cmakeFeature "LLVM_EXTERNAL_SPIRV_HEADERS_SOURCE_DIR" "${spirv-headers.src}")
 
-            (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_EMHASH" "${deps.emhash}")
+            # (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_EMHASH" "${deps.emhash}")
             # (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_PARALLEL-HASHMAP" "${deps.parallel-hashmap}")
 
             # These can be switched over to nixpkgs versions once they're updated

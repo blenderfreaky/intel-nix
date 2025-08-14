@@ -5,7 +5,7 @@
 }: rec {
   llvm = callPackage ./llvm {inherit unified-runtime vc-intrinsics;};
   llvm-alt = callPackage ./llvm/alt.nix {
-    inherit unified-runtime vc-intrinsics; # spirv-llvm-translator;
+    inherit unified-runtime vc-intrinsics emhash; # spirv-llvm-translator;
   };
 
   unified-runtime = callPackage ./unified-runtime.nix {
