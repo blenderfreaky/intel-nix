@@ -277,6 +277,29 @@ in
               "-DCMAKE_CXX_FLAGS_RELEASE=-O3 -DNDEBUG -march=skylake -mtune=znver3 -flto=thin -ffat-lto-objects"
             )
           '';
+
+        postInstall =
+          ''
+            # Check if the rogue include directory was created in $out
+            if [ -d $out/include ]; then
+              # Move its contents to the correct destination
+
+              echo "searchmarker 123123123"
+              ls $out/include
+              echo ------------
+              ls $dev/include
+              echo ------------
+
+              mv $out/include/* $dev/include/
+              # Remove the now-empty directory so fixupPhase doesn't see it
+              rmdir $out/include
+            fi
+          ''
+          + (old.postInstall or "");
+        #
+        # preFixup = old.preFixup + ''
+        #   ls
+        # '';
       }
     );
 
