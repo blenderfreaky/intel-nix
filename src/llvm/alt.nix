@@ -32,6 +32,7 @@
   nativeCpuSupport ? false,
   vulkanSupport ? true,
   useLibcxx ? false,
+  # This is a decent speedup over GNU ld
   useLld ? true,
   buildTests ? false,
   buildDocs ? false,
@@ -296,10 +297,12 @@ in
               echo ------------
 
               mv $out/include/LLVMSPIRVLib $dev/include/
-              mv $out/include/llvm/ExecutionEngine $dev/include/llvm/ExecutionEngine/
-              mv $out/include/llvm/SYCLLowerIR $dev/include/llvm/SYCLLowerIR/
-              # mv $out/include/llvm/* $dev/include/llvm
+              mv $out/include/llvm/ExecutionEngine/* $dev/include/llvm/ExecutionEngine/
+              mv $out/include/llvm/SYCLLowerIR/* $dev/include/llvm/SYCLLowerIR/
               # Remove the now-empty directory so fixupPhase doesn't see it
+              rmdir $out/include/llvm/ExecutionEngine
+              rmdir $out/include/llvm/SYCLLowerIR
+              rmdir $out/include/llvm
               rmdir $out/include
             fi
           ''
