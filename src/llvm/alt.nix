@@ -290,16 +290,18 @@ in
               # Move its contents to the correct destination
 
               echo "searchmarker 123123123"
-              ls $out/include
+              echo ------------
               ${tree}/bin/tree $out
               echo ------------
-              ls $dev/include
+              ${tree}/bin/tree $dev
               echo ------------
 
               mv $out/include/LLVMSPIRVLib $dev/include/
-              mv $out/include/llvm/ExecutionEngine/* $dev/include/llvm/ExecutionEngine/
+              mv $out/include/llvm/ExecutionEngine/Interpreter/* $dev/include/llvm/ExecutionEngine/Interpreter/
               mv $out/include/llvm/SYCLLowerIR/* $dev/include/llvm/SYCLLowerIR/
+
               # Remove the now-empty directory so fixupPhase doesn't see it
+              rmdir $out/include/llvm/ExecutionEngine/Interpreter
               rmdir $out/include/llvm/ExecutionEngine
               rmdir $out/include/llvm/SYCLLowerIR
               rmdir $out/include/llvm
