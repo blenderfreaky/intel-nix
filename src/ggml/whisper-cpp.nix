@@ -1,38 +1,34 @@
-{ lib
+{ cmake
 , fetchFromGitHub
+, git
+, lib
 , llvm
-, cmake
+, llvmPackages
 , makeWrapper
 , oneDNN
 , oneMath
 , oneTBB
-, git
 , openvino
-, llvmPackages
 , SDL2
 , opencl-headers
 , ocl-icd
 , openblas # NOTE: needed for now until whisper.cpp moves to OneMath
+, runCommand
 }:
 
 let
-  oneMathCmakeShim = llvm.stdenv.mkDerivation {
-    pname = "onemath-cmake-shim";
-    version = "0";
-
+  oneMathCmakeShim = runCommand "oneMathCmakeShim" {
     buildInputs = [
       oneMath
       opencl-headers
       ocl-icd
-      llvmPackages.openmp
+      llvm.baseLlvm.openmp
     ];
+  } ''
+    mkdir -p $out/lib/cmake/OpenCL
+    mkdir -p $out/lib/cmake/MKL
 
-    installPhase = ''
-      mkdir -p $out/lib/cmake/OpenCL
-      mkdir -p $out/lib/cmake/OpenCLHeaders
-      mkdir -p $out/lib/cmake/MKL
-
-      cat > $out/lib/cmake/MKL/MKLConfig.cmake <<EOF
+    cat > $out/lib/cmake/MKL/MKLConfig.cmake <<EOF
 add_library(MKL::MKL UNKNOWN IMPORTED GLOBAL)
 set_target_properties(MKL::MKL PROPERTIES
   IMPORTED_LOCATION "${oneMath}/lib/libonemath.so"
@@ -42,12 +38,12 @@ set_target_properties(MKL::MKL PROPERTIES
 add_library(MKL::MKL_SYCL::BLAS UNKNOWN IMPORTED GLOBAL)
 set_target_properties(MKL::MKL_SYCL::BLAS PROPERTIES
   IMPORTED_LOCATION "${oneMath}/lib/libonemath_blas_generic.so"
-  INTERFACE_LINK_LIBRARIES "${oneMath}/lib/libonemath.so;${llvmPackages.openmp}/lib/libiomp5.so"
+  INTERFACE_LINK_LIBRARIES "${oneMath}/lib/libonemath.so;${llvm.baseLlvm.openmp}/lib/libiomp5.so"
   INTERFACE_INCLUDE_DIRECTORIES "${oneMath}/include"
 )
 EOF
 
-      cat > $out/lib/cmake/OpenCL/OpenCLConfig.cmake <<EOF
+    cat > $out/lib/cmake/OpenCL/OpenCLConfig.cmake <<EOF
 if(NOT TARGET OpenCL::OpenCL)
   add_library(OpenCL::OpenCL UNKNOWN IMPORTED GLOBAL)
   set_target_properties(OpenCL::OpenCL PROPERTIES
@@ -63,15 +59,7 @@ if(NOT TARGET OpenCL::OpenCL)
   set(OpenCL_LIBRARIES "${ocl-icd}/lib/libOpenCL.so" CACHE FILEPATH "OpenCL libraries")
 endif()
 EOF
-
-      cp -r ${opencl-headers}/share/cmake/OpenCLHeaders/* $out/lib/cmake/OpenCLHeaders/
-
-      touch $out/.installed
     '';
-
-    phases = [ "installPhase" ];
-  };
-
 in
 
 llvm.stdenv.mkDerivation rec {
@@ -95,7 +83,7 @@ llvm.stdenv.mkDerivation rec {
   buildInputs = [
     oneDNN
     oneTBB
-    llvmPackages.openmp
+    llvm.baseLlvm.openmp
     SDL2
     openvino
     oneMath
@@ -128,7 +116,7 @@ llvm.stdenv.mkDerivation rec {
 
     "-DGGML_BLAS=ON"
     "-DGGML_BLAS_VENDOR=Generic"
-    "-DBLAS_LIBRARIES=${oneMath}/lib/libonemath_blas_generic.so;${llvmPackages.openmp}/lib/libiomp5.so;${openblas}/lib/libopenblas.so"
+    "-DBLAS_LIBRARIES=${oneMath}/lib/libonemath_blas_generic.so;${llvm.baseLlvm.openmp}/lib/libiomp5.so;${openblas}/lib/libopenblas.so"
     "-DBLAS_INCLUDE_DIRS=${openblas}/include"
 
     "-DCMAKE_PREFIX_PATH=${oneMathCmakeShim}/lib/cmake"
