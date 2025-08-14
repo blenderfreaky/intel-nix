@@ -14,7 +14,7 @@
   numactl,
   pkg-config,
   cudaPackages,
-  useJemalloc ? true,
+  useJemalloc ? false,
   cudaSupport ? false,
   levelZeroSupport ? true,
   ctestCheckHook,
@@ -112,6 +112,10 @@ in
       chmod -R u+w /build/jemalloc
     '';
 
+    preInstall = lib.optionalString useJemalloc ''
+      mkdir -p $out/jemalloc
+    '';
+
     cmakeFlags = [
       (lib.cmakeBool "FETCHCONTENT_FULLY_DISCONNECTED" true)
       (lib.cmakeBool "FETCHCONTENT_QUIET" false)
@@ -128,6 +132,8 @@ in
       (lib.cmakeBool "UMF_BUILD_GPU_EXAMPLES" finalAttrs.doCheck)
 
       (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_JEMALLOC_TARG" "/build/jemalloc")
+      # TODO
+      (lib.cmakeFeature "FETCHCONTENT_BINARY_DIR_JEMALLOC_TARG" "${placeholder "out"}/jemalloc")
       (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_GOOGLETEST" "${gtest.src}")
     ];
 
