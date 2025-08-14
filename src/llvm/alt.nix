@@ -31,7 +31,7 @@
   nativeCpuSupport ? false,
   vulkanSupport ? true,
   useLibcxx ? false,
-  useLld ? false,
+  useLld ? true,
   buildTests ? false,
   buildDocs ? false,
   buildMan ? false,
@@ -165,6 +165,12 @@ in
         # inherit src;
         src = src';
 
+        nativeBuildInputs =
+          old.nativeBuildInputs
+          ++ lib.optionals useLld [
+            llvmPackages_21.bintools
+          ];
+
         buildInputs =
           old.buildInputs
           ++ [
@@ -187,9 +193,6 @@ in
 
             # For libspirv_dis
             spirv-tools
-          ]
-          ++ lib.optionals useLld [
-            llvmPackages_21.bintools
           ]
           ++ unified-runtime'.buildInputs;
 
