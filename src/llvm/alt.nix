@@ -13,7 +13,7 @@
   hwloc,
   spirv-headers,
   spirv-tools,
-  spirv-llvm-translator,
+  applyPatches,
   vc-intrinsics,
   emhash,
   libedit,
@@ -70,30 +70,6 @@
     substituteInPlace $out/unified-runtime/cmake/helpers.cmake \
       --replace-fail "PYTHON_EXECUTABLE" "Python3_EXECUTABLE"
 
-    # When running without this, their CMake code copies files from the Nix store.
-    # As the Nix store is read-only and COPY copies permissions by default,
-    # this will lead to the copied files also being read-only.
-    # As CMake at a later point wants to write into copied folders, this causes
-    # the build to fail with a (rather cryptic) permission error.
-    # By setting NO_SOURCE_PERMISSIONS we side-step this issue.
-    # Note in case of future build failures: if there are executables in any of the copied folders,
-    # we may need to add special handling to set the executable permissions.
-    # See also: https://github.com/intel/llvm/issues/19635#issuecomment-3134830708
-    # sed -i '/file(COPY / { /NO_SOURCE_PERMISSIONS/! s/)\s*$/ NO_SOURCE_PERMISSIONS)/ }' \
-    #   $out/unified-runtime/cmake/FetchLevelZero.cmake
-      #$out/sycl/CMakeLists.txt \
-      #$out/sycl/cmake/modules/FetchEmhash.cmake \
-
-    # Parts of libdevice are built using the freshly-built compiler.
-    # As it tries to link to system libraries, we need to wrap it with the
-    # usual nix cc-wrapper.
-    # Since the compiler to be wrapped is not available at this point,
-    # we use a stub that points to where it will be later on
-    # in `/build/source/build/bin/clang-21`
-    # Note: both nix and bash try to expand clang_exe here, so double-escape it
-    #substituteInPlace libdevice/cmake/modules/SYCLLibdevice.cmake \
-    #  --replace-fail "\''${clang_exe}" "$ {ccWrapperStub}/bin/clang++"
-
     # Some libraries check for the version of the compiler.
     # For some reason, this version is determined by the
     # date of compilation. As the nix sandbox tells CMake
@@ -107,15 +83,12 @@
   llvmPackages = llvmPackages_21;
   # TODO: I'm not sure whether we need to override the src, or if
   # they just vendored upstream without patches.
-  tblgen = pkgs.tblgen.overrideAttrs (old: {
-    # TODO: This is sketchy
-    buildInputs = (old.buildInputs or []) ++ [vc-intrinsics];
-  });
+
   stdenv =
     if useLibcxx
     then llvmPackages.libcxxStdenv
     else llvmPackages.stdenv;
-  pkgs = llvmPackages.override (old: {
+  llvmPkgs = llvmPackages.override (old: {
     inherit stdenv;
     #inherit src;
 
@@ -129,13 +102,65 @@
 
     # enableSharedLibraries = false;
 
-    buildLlvmTools.tblgen = tblgen;
+    # Not all projects need all these flags,
+    # but I don't think it hurts to always include them.
+    # libllvm needs all of them, so we're not losing
+    # incremental builds or anything.
+    devExtraCmakeFlags = [
+      "-DCMAKE_BUILD_TYPE=Release"
+      "-DLLVM_ENABLE_ZSTD=FORCE_ON"
+      "-DLLVM_ENABLE_ZLIB=FORCE_ON"
+      "-DLLVM_ENABLE_THREADS=ON"
+      # Breaks tablegen build somehow
+      # "-DLLVM_ENABLE_LTO=Thin"
+
+      (lib.cmakeBool "BUILD_SHARED_LIBS" false)
+      # # TODO: configure fails when these are true, but I've no idea why
+      # NOTE: Fails with buildbot/configure.py as well when these are set
+      (lib.cmakeBool "LLVM_LINK_LLVM_DYLIB" false)
+      (lib.cmakeBool "LLVM_BUILD_LLVM_DYLIB" false)
+
+      (lib.cmakeBool "LLVM_ENABLE_LIBCXX" useLibcxx)
+      (lib.cmakeFeature "CLANG_DEFAULT_CXX_STDLIB" (
+        if useLibcxx
+        then "libc++"
+        else "libstdc++"
+      ))
+
+      (lib.cmakeBool "FETCHCONTENT_FULLY_DISCONNECTED" true)
+      (lib.cmakeBool "FETCHCONTENT_QUIET" false)
+
+      (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_VC-INTRINSICS" "${deps.vc-intrinsics}")
+
+      (lib.cmakeFeature "LLVM_EXTERNAL_SPIRV_HEADERS_SOURCE_DIR" "${spirv-headers.src}")
+
+      # These can be switched over to nixpkgs versions once they're updated
+      # See: https://github.com/NixOS/nixpkgs/pull/428558
+      (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_OCL-HEADERS" "${deps.opencl-headers}")
+      (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_OCL-ICD" "${deps.opencl-icd-loader}")
+
+      (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_ONEAPI-CK" "${deps.oneapi-ck}")
+    ];
+
+    # TODO: This may break cross-compilation?
+    # NOTE: For some reason
+    buildLlvmTools.tblgen = overrides.tblgen;
+    libllvm = overrides.llvm;
   });
-in
-  pkgs
-  // rec {
-    inherit tblgen;
-    llvm = pkgs.llvm.overrideAttrs (
+  overrides = {
+    tblgen = llvmPkgs.tblgen.overrideAttrs (old: {
+      # TODO: This is sketchy
+      # buildInputs = (old.buildInputs or []) ++ [vc-intrinsics];
+      propagatedBuildInputs =
+        (old.propagatedBuildInputs or [])
+        ++ [
+          zstd
+          zlib
+        ];
+    });
+
+    # inherit tblgen;
+    llvm = llvmPkgs.llvm.overrideAttrs (
       old: let
         src' = runCommand "llvm-src-${version}" {inherit (src) passthru;} ''
           mkdir -p "$out"
@@ -200,34 +225,8 @@ in
         cmakeFlags =
           old.cmakeFlags
           ++ [
-            "-DCMAKE_BUILD_TYPE=Release"
-            "-DLLVM_ENABLE_ZSTD=FORCE_ON"
-            "-DLLVM_ENABLE_ZLIB=FORCE_ON"
-            "-DLLVM_ENABLE_THREADS=ON"
-            "-DLLVM_ENABLE_LTO=Thin"
-
-            (lib.cmakeBool "BUILD_SHARED_LIBS" false)
-            # TODO: configure fails when these are true, but I've no idea why
-            # NOTE: Fails with buildbot/configure.py as well when these are set
-            (lib.cmakeBool "LLVM_LINK_LLVM_DYLIB" false)
-            (lib.cmakeBool "LLVM_BUILD_LLVM_DYLIB" false)
-
-            # (lib.cmakeBool "LLVM_ENABLE_LIBCXX" useLibcxx)
-            # (lib.cmakeFeature "CLANG_DEFAULT_CXX_STDLIB" (if useLibcxx then "libc++" else "libstdc++"))
-
-            (lib.cmakeBool "FETCHCONTENT_FULLY_DISCONNECTED" true)
-            (lib.cmakeBool "FETCHCONTENT_QUIET" false)
-
-            (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_VC-INTRINSICS" "${deps.vc-intrinsics}")
-
-            (lib.cmakeFeature "LLVM_EXTERNAL_SPIRV_HEADERS_SOURCE_DIR" "${spirv-headers.src}")
-
-            # These can be switched over to nixpkgs versions once they're updated
-            # See: https://github.com/NixOS/nixpkgs/pull/428558
-            (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_OCL-HEADERS" "${deps.opencl-headers}")
-            (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_OCL-ICD" "${deps.opencl-icd-loader}")
-
-            (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_ONEAPI-CK" "${deps.oneapi-ck}")
+            # Off to save build time, TODO: Reenable
+            # "-DLLVM_ENABLE_LTO=Thin"
 
             # "-DLLVM_EXTERNAL_VC_INTRINSICS_SOURCE_DIR=${vc-intrinsics.src}"
             #"-DLLVM_EXTERNAL_PROJECTS=sycl;llvm-spirv;opencl;xpti;xptifw;libdevice;sycl-jit"
@@ -304,7 +303,7 @@ in
       }
     );
 
-    clang-unwrapped = (pkgs.clang-unwrapped.override {libllvm = llvm;}).overrideAttrs (old: {
+    clang-unwrapped = (llvmPkgs.clang-unwrapped.override {}).overrideAttrs (old: {
       cmakeFlags =
         (old.cmakeFlags or [])
         ++ [
@@ -343,7 +342,7 @@ in
         cp -r ${src}/xptifw "$out"
 
         mkdir -p "$out/sycl/cmake/modules"
-        cp -r ${src}/sycl/cmake/modules/FetchEmhash.cmake "$out/sycl/cmake/modules"
+        cp ${src}/sycl/cmake/modules/FetchEmhash.cmake "$out/sycl/cmake/modules"
       '';
 
       sourceRoot = "${finalAttrs.src.name}/xptifw";
@@ -354,14 +353,19 @@ in
       ];
 
       buildInputs = [
-        parallel-hashmap
-        xpti
+        # parallel-hashmap
+        # emhash
+        overrides.xpti
       ];
 
       # TODO
       cmakeFlags = [
+        # Lookup broken
         (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_EMHASH" "${deps.emhash}")
+        # Lookup not implemented
         (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_PARALLEL-HASHMAP" "${parallel-hashmap.src}")
       ];
     });
-  }
+  };
+in
+  llvmPkgs // overrides
