@@ -1,4 +1,5 @@
-{ cmake
+{ autoAddDriverRunpath
+, cmake
 , fetchFromGitHub
 , git
 , lib
@@ -78,6 +79,7 @@ llvm.stdenv.mkDerivation rec {
     makeWrapper
     git
     oneMathCmakeShim
+    autoAddDriverRunpath
   ];
 
   buildInputs = [
@@ -122,12 +124,14 @@ llvm.stdenv.mkDerivation rec {
     "-DCMAKE_PREFIX_PATH=${oneMathCmakeShim}/lib/cmake"
   ];
 
+  # NOTE: TODO: Uncommenting/removing this today causes runtime problems later, granted I didnt rebase master yet
   postInstall = ''
     for binary in $out/bin/*; do
       if [[ -f "$binary" && -x "$binary" ]]; then
         wrapProgram "$binary" \
-          --prefix LD_LIBRARY_PATH : "/run/opengl-driver/lib:/run/opengl-driver-32/lib:${openvino}/runtime/lib/intel64"
+          --prefix LD_LIBRARY_PATH : "/run/opengl-driver/lib:/run/opengl-driver-32/lib"
       fi
     done
   '';
 }
+

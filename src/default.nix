@@ -73,6 +73,7 @@
       oneDNN
       oneMath
       oneTBB
+      openvino
       ;
   };
   llama-cpp = callPackage ./ggml/llama-cpp.nix {
