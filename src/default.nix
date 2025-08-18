@@ -31,6 +31,7 @@
   oneTBB = callPackage ./onetbb.nix {
     #inherit llvm;
   };
+  openvino = callPackage ./openvino.nix {};
 
   spirv-llvm-translator = callPackage ./spirv-llvm-translator.nix {};
   spirv-llvm-translator-test =
