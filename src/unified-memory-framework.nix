@@ -12,6 +12,7 @@
   automake,
   oneTBB,
   numactl,
+  jemalloc,
   pkg-config,
   cudaPackages,
   useJemalloc ? false,
@@ -28,14 +29,6 @@
 }: let
   version = "1.1.0-dev2";
   tag = "v${version}";
-  # This needs to be vendored, as they don't support using a pre-built version
-  # and they compile with specific flags that the nixpkgs version doesn't (and shouldn't) set
-  jemalloc = fetchFromGitHub {
-    owner = "jemalloc";
-    repo = "jemalloc";
-    tag = "5.3.0";
-    sha256 = "sha256-bb0OhZVXyvN+hf9BpPSykn5cGm87a0C+Y/iXKt9wTSs=";
-  };
 in
   stdenv.mkDerivation (finalAttrs: {
     name = "unified-memory-framework";
@@ -98,10 +91,12 @@ in
         --replace-fail "git describe --always" "echo ${tag}"
     '';
 
+    # If included, jemalloc needs to be vendored, as they don't support using a pre-built version
+    # and they compile with specific flags that the nixpkgs version doesn't (and shouldn't) set
     # Autoconf wants to write files, so we copy the source to the build directory
     # where we can make it writable
     preConfigure = lib.optionalString useJemalloc ''
-      cp -r ${jemalloc} /build/jemalloc
+      cp -r ${jemalloc.src} /build/jemalloc
       chmod -R u+w /build/jemalloc
     '';
 
@@ -125,7 +120,6 @@ in
       (lib.cmakeBool "UMF_BUILD_GPU_EXAMPLES" finalAttrs.doCheck)
 
       (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_JEMALLOC_TARG" "/build/jemalloc")
-      # TODO
       (lib.cmakeFeature "FETCHCONTENT_BINARY_DIR_JEMALLOC_TARG" "${placeholder "out"}/jemalloc")
     ];
 
