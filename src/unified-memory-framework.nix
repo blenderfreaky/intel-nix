@@ -26,7 +26,7 @@
   sphinx,
   buildDocs ? true,
 }: let
-  version = "1.0.1";
+  version = "1.1.0-dev2";
   tag = "v${version}";
   # This needs to be vendored, as they don't support using a pre-built version
   # and they compile with specific flags that the nixpkgs version doesn't (and shouldn't) set
@@ -88,15 +88,8 @@ in
       owner = "oneapi-src";
       repo = "unified-memory-framework";
       inherit tag;
-      sha256 = "sha256-aS03kZDVh/TEjKialuV5/i7C65OddAKOda22ik7ZrPs=";
+      sha256 = "sha256-sWd3Z6vQHwsZcBf/cxluWfwuBxfr7sumg7HWeqaTRLo=";
     };
-
-    patches = [
-      (fetchpatch {
-        url = "https://github.com/oneapi-src/unified-memory-framework/commit/df9fcf13eefd804110d5cc4cbc661ec21febb7c7.patch";
-        hash = "sha256-g1Sir5S7zeIFqkQYMeLVpdbJjXvlWN69rEZu4qTwr9w=";
-      })
-    ];
 
     postPatch = ''
       # The CMake tries to find out the version via git.
@@ -134,7 +127,6 @@ in
       (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_JEMALLOC_TARG" "/build/jemalloc")
       # TODO
       (lib.cmakeFeature "FETCHCONTENT_BINARY_DIR_JEMALLOC_TARG" "${placeholder "out"}/jemalloc")
-      (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_GOOGLETEST" "${gtest.src}")
     ];
 
     doCheck = buildTests;
