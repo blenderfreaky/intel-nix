@@ -12,7 +12,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  llvm:
+  llvm-core:
     runs-on: ubuntu-latest
     steps:
       - name: git checkout
@@ -20,7 +20,31 @@ jobs:
       - uses: ./.github/actions/nix-build
         with:
           component: src.llvm.llvm
-          display-name: "Intel Open Source DPC++ Compiler"
+          display-name: "Intel Open Source DPC++ Compiler (Non-Monolithic, Core)"
+
+  llvm:
+    runs-on: ubuntu-latest
+    needs: llvm-core
+    strategy:
+      matrix:
+        component: [stdenv, clang, libclc]
+    steps:
+      - name: git checkout
+        uses: actions/checkout@v4
+      - uses: ./.github/actions/nix-build
+        with:
+          component: src.llvm.${{ matrix.component }}
+          display-name: "Intel Open Source DPC++ Compiler (Non-Monolithic, Other)"
+
+  llvm-mono:
+    runs-on: ubuntu-latest
+    steps:
+      - name: git checkout
+        uses: actions/checkout@v4
+      - uses: ./.github/actions/nix-build
+        with:
+          component: src.llvm-prev
+          display-name: "Intel Open Source DPC++ Compiler (Monolithic)"
 
   oneapi-src:
     runs-on: ubuntu-latest
