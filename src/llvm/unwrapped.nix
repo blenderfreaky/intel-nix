@@ -45,8 +45,8 @@
   buildDocs ? false,
   buildMan ? false,
 }: let
-  version = "unstable-2025-08-19";
-  date = "20250819";
+  version = "6.2.0";
+  date = "20250815";
   stdenv =
     if useLibcxx
     then llvmPackages_21.libcxxStdenv
@@ -90,9 +90,9 @@ in
     src = fetchFromGitHub {
       owner = "intel";
       repo = "llvm";
-      # tag = "sycl-web/sycl-latest-good";
-      rev = "1dee8fc72d540109e13ea80193caa4432545790a";
-      hash = "sha256-49TiJWS6SK/zs54JUsXVbe2gi2LmSBl7UXyN1VMliGU=";
+      tag = "v${version}";
+      # rev = "1dee8fc72d540109e13ea80193caa4432545790a";
+      hash = "sha256-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa=";
     };
 
     # I'd like to split outputs, but currently this fails
