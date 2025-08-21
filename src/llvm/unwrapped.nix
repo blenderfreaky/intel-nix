@@ -25,6 +25,7 @@
   parallel-hashmap,
   spirv-headers,
   spirv-tools,
+  fetchpatch,
   # opencl-headers,
   # emhash,
   zlib,
@@ -45,8 +46,8 @@
   buildDocs ? false,
   buildMan ? false,
 }: let
-  version = "6.2.0";
-  date = "20250815";
+  version = "unstable-2025-08-21";
+  date = "20250821";
   stdenv =
     if useLibcxx
     then llvmPackages_21.libcxxStdenv
@@ -90,9 +91,9 @@ in
     src = fetchFromGitHub {
       owner = "intel";
       repo = "llvm";
-      tag = "v${version}";
-      # rev = "1dee8fc72d540109e13ea80193caa4432545790a";
-      hash = "sha256-j8+DmGKO0qDF5JjH+DlkLKs1kBz6dS7ukwySd/Crqv0=";
+      # tag = "v${version}";
+      rev = "6c0207df63545a6630e12c65227f9241770b701c";
+      hash = "sha256-wVNG37RIztGsZS9pZ9sp4vYYA4nXoCxh6xocRjy3OK8=";
     };
 
     # I'd like to split outputs, but currently this fails
@@ -142,13 +143,20 @@ in
       ctestCheckHook
     ];
 
-    postPatch = ''
-      # The latter is used everywhere except this one file. For some reason,
-      # the former is not set, at least when building with Nix, so we replace it.
-      # See also: github.com/intel/llvm/pull/19637
-      substituteInPlace unified-runtime/cmake/helpers.cmake \
-        --replace-fail "PYTHON_EXECUTABLE" "Python3_EXECUTABLE"
+    patches = [
+      (fetchpatch {
+        name = "make-sycl-version-reproducible";
+        url = "https://github.com/intel/llvm/commit/1c22570828e24a628c399aae09ce15ad82b924c6.patch";
+        hash = "sha256-leBTUmanYaeoNbmA0m9VFX/5ViACuXidWUhohewshQQ=";
+      })
+      (fetchpatch {
+        name = "fix-cmake-python";
+        url = "https://github.com/intel/llvm/pull/19637.patch";
+        hash = "sha256-0JcVK/puu62V0hq1vE6ETonPQm8hk8l3SOSm3IXNeqM=";
+      })
+    ];
 
+    postPatch = ''
       # Parts of libdevice are built using the freshly-built compiler.
       # As it tries to link to system libraries, we need to wrap it with the
       # usual nix cc-wrapper.
@@ -172,16 +180,6 @@ in
         unified-runtime/cmake/FetchLevelZero.cmake \
         sycl/CMakeLists.txt \
         sycl/cmake/modules/FetchEmhash.cmake
-
-      # Some libraries check for the version of the compiler.
-      # For some reason, this version is determined by the
-      # date of compilation. As the nix sandbox tells CMake
-      # it's running at Unix epoch, this will always result in
-      # a waaaay too old version.
-      # To avoid this, we set the version to a fixed value.
-      # See also: https://github.com/intel/llvm/issues/19692
-      substituteInPlace sycl/CMakeLists.txt \
-        --replace-fail 'string(TIMESTAMP __SYCL_COMPILER_VERSION "%Y%m%d")' 'set(__SYCL_COMPILER_VERSION "${date}")'
     '';
 
     preConfigure = ''
@@ -264,6 +262,8 @@ in
           then "libc++"
           else "libstdc++"
         ))
+
+        (lib.cmakeFeature "SYCL_COMPILER_VERSION" date)
 
         (lib.cmakeBool "FETCHCONTENT_FULLY_DISCONNECTED" true)
         (lib.cmakeBool "FETCHCONTENT_QUIET" false)
