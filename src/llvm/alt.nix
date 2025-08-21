@@ -517,7 +517,15 @@
           zstd
           zlib
           libedit
+          # overrides.llvm.dev
         ];
+
+      postPatch =
+        (old.postPatch or "")
+        + ''
+          substituteInPlace lib/Driver/CMakeLists.txt \
+            --replace-fail "DeviceConfigFile" ""
+        '';
 
       cmakeFlags =
         (old.cmakeFlags or [])
