@@ -3,7 +3,7 @@
   callPackage,
   pkgs,
 }: rec {
-  llvm-prev = callPackage ./llvm {inherit unified-runtime vc-intrinsics;};
+  llvm-prev = callPackage ./llvm {inherit unified-runtime vc-intrinsics emhash;};
   llvm = callPackage ./llvm/alt.nix {
     inherit unified-runtime vc-intrinsics emhash; # spirv-llvm-translator;
   };

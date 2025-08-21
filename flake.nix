@@ -2,9 +2,10 @@
   description = "WIP Packaging of Intel LLVM, OneAPI and related tools for Nix";
 
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-    #nixpkgs.url = "github:NixOS/nixpkgs/staging";
+    # nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    # nixpkgs.url = "github:NixOS/nixpkgs/staging";
     # nixpkgs-spirv.url = "github:NixOS/nixpkgs/pull/432015/head";
+    nixpkgs.url = "github:blenderfreaky/nixpkgs/fix/llvm-libclc";
     flake-utils.url = "github:numtide/flake-utils";
   };
 
@@ -46,7 +47,7 @@
                 };
               };
 
-              spirv-llvm-translator = self.packages.${system}.src.spirv-llvm-translator;
+              # spirv-llvm-translator = self.packages.${system}.src.spirv-llvm-translator;
             })
           ];
         };

@@ -5,8 +5,9 @@
   overrideCC,
   unified-runtime,
   vc-intrinsics,
+  emhash,
 }: let
-  llvm-unwrapped = callPackage ./unwrapped.nix {inherit unified-runtime vc-intrinsics;};
+  llvm-unwrapped = callPackage ./unwrapped.nix {inherit unified-runtime emhash;};
   llvm-wrapper = wrapCC llvm-unwrapped;
   llvm = symlinkJoin {
     inherit (llvm-unwrapped) pname version meta;

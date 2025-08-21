@@ -1,6 +1,6 @@
 {
   lib,
-  stdenv,
+  # stdenv,
   fetchFromGitHub,
   cmake,
   ninja,
@@ -13,7 +13,7 @@
   # Rather than duplicating the flags, we can simply use the existing flags.
   # We can also use this to debug unified-runtime without building the entire LLVM project.
   unified-runtime,
-  vc-intrinsics,
+  emhash,
   sphinx,
   doxygen,
   level-zero,
@@ -22,8 +22,9 @@
   libedit,
   llvmPackages_21,
   callPackage,
+  parallel-hashmap,
+  spirv-headers,
   spirv-tools,
-  intel-compute-runtime,
   # opencl-headers,
   # emhash,
   zlib,
@@ -39,13 +40,17 @@
   nativeCpuSupport ? false,
   vulkanSupport ? true,
   useLibcxx ? false,
-  useLdd ? false,
+  useLld ? false,
   buildTests ? false,
   buildDocs ? false,
   buildMan ? false,
 }: let
-  version = "unstable-2025-08-12";
-  date = "20250812";
+  version = "unstable-2025-08-19";
+  date = "20250819";
+  stdenv =
+    if useLibcxx
+    then llvmPackages_21.libcxxStdenv
+    else llvmPackages_21.stdenv;
   deps = callPackage ./deps.nix {};
   unified-runtime' = unified-runtime.override {
     inherit
@@ -86,8 +91,8 @@ in
       owner = "intel";
       repo = "llvm";
       # tag = "sycl-web/sycl-latest-good";
-      rev = "0e0984eec8008f4f6cb8b3bf6c2811f0dd8faa94";
-      hash = "sha256-AkAwc7JjvDcuXq5lGavnUsE8GKfiPV5CCR18InPl8ws=";
+      rev = "1dee8fc72d540109e13ea80193caa4432545790a";
+      hash = "sha256-49TiJWS6SK/zs54JUsXVbe2gi2LmSBl7UXyN1VMliGU=";
     };
 
     # I'd like to split outputs, but currently this fails
@@ -104,32 +109,33 @@ in
         ninja
         python3
         pkg-config
+        zlib
       ]
-      ++ lib.optionals useLdd [
+      ++ lib.optionals useLld [
         llvmPackages_21.bintools
       ];
 
     buildInputs =
       [
-        zstd
         sphinx
         doxygen
         spirv-tools
         libxml2
         valgrind.dev
-        zlib
-        libedit
         hwloc
-        vc-intrinsics
-        intel-compute-runtime
-        # TODO: Package separately
-        # emhash
+        emhash
       ]
       ++ lib.optionals useLibcxx [
         libcxx
         libcxx.dev
       ]
       ++ unified-runtime'.buildInputs;
+
+    propagatedBuildInputs = [
+      zstd
+      zlib
+      libedit
+    ];
 
     # TODO: Is this needed?
     nativeCheckInputs = lib.optionals buildTests [
@@ -142,6 +148,16 @@ in
       # See also: github.com/intel/llvm/pull/19637
       substituteInPlace unified-runtime/cmake/helpers.cmake \
         --replace-fail "PYTHON_EXECUTABLE" "Python3_EXECUTABLE"
+
+      # Parts of libdevice are built using the freshly-built compiler.
+      # As it tries to link to system libraries, we need to wrap it with the
+      # usual nix cc-wrapper.
+      # Since the compiler to be wrapped is not available at this point,
+      # we use a stub that points to where it will be later on
+      # in `/build/source/build/bin/clang-21`
+      # Note: both nix and bash try to expand clang_exe here, so double-escape it
+      substituteInPlace libdevice/cmake/modules/SYCLLibdevice.cmake \
+        --replace-fail "\''${clang_exe}" "${ccWrapperStub}/bin/clang++"
 
       # When running without this, their CMake code copies files from the Nix store.
       # As the Nix store is read-only and COPY copies permissions by default,
@@ -156,16 +172,6 @@ in
         unified-runtime/cmake/FetchLevelZero.cmake \
         sycl/CMakeLists.txt \
         sycl/cmake/modules/FetchEmhash.cmake
-
-      # Parts of libdevice are built using the freshly-built compiler.
-      # As it tries to link to system libraries, we need to wrap it with the
-      # usual nix cc-wrapper.
-      # Since the compiler to be wrapped is not available at this point,
-      # we use a stub that points to where it will be later on
-      # in `/build/source/build/bin/clang-21`
-      # Note: both nix and bash try to expand clang_exe here, so double-escape it
-      substituteInPlace libdevice/cmake/modules/SYCLLibdevice.cmake \
-        --replace-fail "\''${clang_exe}" "${ccWrapperStub}/bin/clang++"
 
       # Some libraries check for the version of the compiler.
       # For some reason, this version is determined by the
@@ -190,14 +196,13 @@ in
           ${lib.optionalString useLibcxx "--use-libcxx"} \
           ${lib.optionalString useLibcxx "--libcxx-include ${lib.getInclude libcxx}/include"} \
           ${lib.optionalString useLibcxx "--libcxx-library ${lib.getLib libcxx}/lib"} \
-          ${lib.optionalString useLdd "--use-lld"} \
+          ${lib.optionalString useLld "--use-lld"} \
           ${lib.optionalString levelZeroSupport "--level_zero_adapter_version V1"} \
           ${lib.optionalString levelZeroSupport "--l0-headers ${lib.getInclude level-zero}/include/level_zero"} \
           ${lib.optionalString levelZeroSupport "--l0-loader ${lib.getLib level-zero}/lib/libze_loader.so"} \
           # --enable-all-llvm-targets
           # --shared-libs # Bad and should not be used
       )
-
 
       # We eval because flags is separated as shell-escaped strings.
       # We can't just split by space because it may contain escaped spaces,
@@ -208,6 +213,11 @@ in
 
       # Remove the install prefix flag
       cmakeFlags=(''${cmakeFlags[@]/-DCMAKE_INSTALL_PREFIX=\/build\/source\/build\/install})
+
+      cmakeFlagsArray+=(
+      "-DCMAKE_C_FLAGS_RELEASE=-O3 -DNDEBUG -march=skylake -mtune=znver3 -flto=thin -ffat-lto-objects"
+      "-DCMAKE_CXX_FLAGS_RELEASE=-O3 -DNDEBUG -march=skylake -mtune=znver3 -flto=thin -ffat-lto-objects"
+      )
     '';
 
     cmakeDir = "/build/source/llvm";
@@ -233,19 +243,34 @@ in
         (lib.cmakeBool "MLIR_INCLUDE_TESTS" buildTests)
         (lib.cmakeBool "SYCL_INCLUDE_TESTS" buildTests)
 
-        # !!! TODO
-        (lib.cmakeBool "LLVM_BUILD_LLVM_DYLIB" true)
+        "-DCMAKE_BUILD_TYPE=Release"
+        # "-DLLVM_ENABLE_ZSTD=FORCE_ON"
+        # TODO
+        # "-DLLVM_ENABLE_ZLIB=FORCE_ON"
+        "-DLLVM_ENABLE_THREADS=ON"
+        # Breaks tablegen build somehow
+        # "-DLLVM_ENABLE_LTO=Thin"
+        # "-DLLVM_USE_STATIC_ZSTD=OFF"
+
         (lib.cmakeBool "BUILD_SHARED_LIBS" false)
+        # # TODO: configure fails when these are true, but I've no idea why
+        # NOTE: Fails with buildbot/configure.py as well when these are set
+        (lib.cmakeBool "LLVM_LINK_LLVM_DYLIB" false)
+        (lib.cmakeBool "LLVM_BUILD_LLVM_DYLIB" false)
+
+        (lib.cmakeBool "LLVM_ENABLE_LIBCXX" useLibcxx)
+        (lib.cmakeFeature "CLANG_DEFAULT_CXX_STDLIB" (
+          if useLibcxx
+          then "libc++"
+          else "libstdc++"
+        ))
 
         (lib.cmakeBool "FETCHCONTENT_FULLY_DISCONNECTED" true)
         (lib.cmakeBool "FETCHCONTENT_QUIET" false)
 
-        #(lib.cmakeFeature "LLVMGenXIntrinsics_SOURCE_DIR" "${deps.vc-intrinsics}")
-        # This can be changed to (pkgs.) spirv-headers.src once they release a new version and nix updates to that
-        (lib.cmakeFeature "LLVM_EXTERNAL_SPIRV_HEADERS_SOURCE_DIR" "${deps.spirv-headers}")
+        (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_VC-INTRINSICS" "${deps.vc-intrinsics}")
 
-        (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_EMHASH" "${deps.emhash}")
-        (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_PARALLEL-HASHMAP" "${deps.parallel-hashmap}")
+        (lib.cmakeFeature "LLVM_EXTERNAL_SPIRV_HEADERS_SOURCE_DIR" "${spirv-headers.src}")
 
         # These can be switched over to nixpkgs versions once they're updated
         # See: https://github.com/NixOS/nixpkgs/pull/428558
@@ -253,7 +278,13 @@ in
         (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_OCL-ICD" "${deps.opencl-icd-loader}")
 
         (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_ONEAPI-CK" "${deps.oneapi-ck}")
+
+        # Lookup broken
+        (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_EMHASH" "${deps.emhash}")
+        # Lookup not implemented
+        (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_PARALLEL-HASHMAP" "${parallel-hashmap.src}")
       ]
+      ++ lib.optional useLld (lib.cmakeFeature "LLVM_USE_LINKER" "lld")
       ++ unified-runtime'.cmakeFlags;
 
     # This hardening option causes compilation errors when compiling for amdgcn, spirv and others

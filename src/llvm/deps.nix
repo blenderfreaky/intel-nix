@@ -7,14 +7,6 @@
     sha256 = "sha256-1K16UEa6DHoP2ukSx58OXJdtDWyUyHkq5Gd2DUj1644=";
   };
 
-  spirv-headers = fetchFromGitHub {
-    owner = "KhronosGroup";
-    repo = "SPIRV-Headers";
-    # See llvm-spirv/spirv-headers-tag.conf
-    rev = "9e3836d7d6023843a72ecd3fbf3f09b1b6747a9e";
-    sha256 = "sha256-N8NBAkkpOcbgap4loPJJW6E5bjG+TixCh/HN259RyjI=";
-  };
-
   oneapi-ck = fetchFromGitHub {
     owner = "uxlfoundation";
     repo = "oneapi-construction-kit";
@@ -45,13 +37,5 @@
     # See sycl/cmake/modules/FetchEmhash.cmake:12
     rev = "3ba9abdfdc2e0430fcc2fd8993cad31945b6a02b";
     sha256 = "sha256-w/iW5n9BzdiieZfxnVBF5MJTpHtZoWCUomjZ0h4OGH8=";
-  };
-
-  parallel-hashmap = fetchFromGitHub {
-    owner = "greg7mdp";
-    repo = "parallel-hashmap";
-    # See xptifw/src/CMakeLists.txt:15
-    rev = "8a889d3699b3c09ade435641fb034427f3fd12b6";
-    sha256 = "sha256-hcA5sjL0LHuddEJdJdFGRbaEXOAhh78wRa6csmxi4Rk=";
   };
 }

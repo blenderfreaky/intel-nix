@@ -1,0 +1,17 @@
+diff --git a/../sycl/CMakeLists.txt b/../sycl/CMakeLists.txt
+index 4ecf9da2f84d..e59cc2090a80 100644
+--- a/../sycl/CMakeLists.txt
++++ b/../sycl/CMakeLists.txt
+@@ -144,11 +144,7 @@ set(CLANG_VERSION "${CLANG_VERSION_MAJOR}.${CLANG_VERSION_MINOR}.${CLANG_VERSION
+ set(SYCL_INCLUDE_DIR "include")
+ set(SYCL_INCLUDE_BUILD_DIR ${LLVM_BINARY_DIR}/${SYCL_INCLUDE_DIR})
+ 
+-add_llvm_external_project(opencl)
+-list(FIND LLVM_ENABLE_PROJECTS opencl OPENCL_PROJ_FOUND)
+-if(OPENCL_PROJ_FOUND EQUAL -1)
+-  message(FATAL_ERROR "opencl external project required but not found.")
+-endif()
++find_package(OpenCL REQUIRED)
+ 
+ if(NOT OpenCL_FOUND)
+   # Copy OpenCL Headers into sycl headers build directory

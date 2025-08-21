@@ -195,7 +195,20 @@
           #   (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_GOOGLETEST" "${gtest}")
         ];
 
-      passthru.tests = make true;
+      passthru = {
+        tests = make true;
+        backends =
+          lib.optionals cudaSupport [
+            "cuda"
+          ]
+          ++ lib.optionals rocmSupport [
+            "hip"
+          ]
+          ++ lib.optionals levelZeroSupport [
+            "level_zero"
+            "level_zero_v2"
+          ];
+      };
     });
 in
   make buildTests
