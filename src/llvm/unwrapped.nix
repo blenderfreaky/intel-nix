@@ -92,7 +92,7 @@ in
       repo = "llvm";
       tag = "v${version}";
       # rev = "1dee8fc72d540109e13ea80193caa4432545790a";
-      hash = "sha256-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa=";
+      hash = "sha256-j8+DmGKO0qDF5JjH+DlkLKs1kBz6dS7ukwySd/Crqv0=";
     };
 
     # I'd like to split outputs, but currently this fails
