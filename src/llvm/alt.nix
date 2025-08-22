@@ -64,8 +64,8 @@
       owner = "intel";
       repo = "llvm";
       # tag = "v${version}";
-      rev = "6c0207df63545a6630e12c65227f9241770b701c";
-      hash = "sha256-wVNG37RIztGsZS9pZ9sp4vYYA4nXoCxh6xocRjy3OK8=";
+      rev = "8000760fc6448f61038670a71866c2f9876c000c";
+      hash = "sha256-Fgioiw98c6gTP3xCaIoTAjOoz2mqudmG9Vdyx5h3pSc=";
     };
 
     patches = [
@@ -84,6 +84,9 @@
   src = runCommand "intel-llvm-src-fixed-${version}" {} ''
     cp -r ${srcOrig} $out
     chmod -R u+w $out
+
+    substituteInPlace $out/clang/lib/Driver/CMakeLists.txt \
+      --replace-fail "DeviceConfigFile" ""
   '';
   llvmPackages = llvmPackages_21;
   # TODO
@@ -520,21 +523,19 @@
           # overrides.llvm.dev
         ];
 
-      postPatch =
-        (old.postPatch or "")
-        + ''
-          substituteInPlace lib/Driver/CMakeLists.txt \
-            --replace-fail "DeviceConfigFile" ""
-        '';
+      # postPatch =
+      #   (old.postPatch or "")
+      #   + ''
+      #   '';
 
-      cmakeFlags =
-        (old.cmakeFlags or [])
-        ++ [
-          (lib.cmakeBool "FETCHCONTENT_FULLY_DISCONNECTED" true)
-          (lib.cmakeBool "FETCHCONTENT_QUIET" false)
+      # cmakeFlags =
+      #   (old.cmakeFlags or [])
+      #   ++ [
+      #     (lib.cmakeBool "FETCHCONTENT_FULLY_DISCONNECTED" true)
+      #     (lib.cmakeBool "FETCHCONTENT_QUIET" false)
 
-          (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_VC-INTRINSICS" "${deps.vc-intrinsics}")
-        ];
+      #     (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_VC-INTRINSICS" "${deps.vc-intrinsics}")
+      #   ];
     });
 
     libcxx = llvmPkgs.libcxx.overrideAttrs (old: {

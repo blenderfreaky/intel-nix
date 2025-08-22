@@ -92,8 +92,8 @@ in
       owner = "intel";
       repo = "llvm";
       # tag = "v${version}";
-      rev = "6c0207df63545a6630e12c65227f9241770b701c";
-      hash = "sha256-wVNG37RIztGsZS9pZ9sp4vYYA4nXoCxh6xocRjy3OK8=";
+      rev = "09257b7632580e96fdd3434bea7fad5455889ad9";
+      hash = "sha256-Fgioiw98c6gTP3xCaIoTAjOoz2mqudmG9Vdyx5h3pSc=";
     };
 
     # I'd like to split outputs, but currently this fails
