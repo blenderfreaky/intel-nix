@@ -24,7 +24,9 @@
   wrapCCWith,
   overrideCC,
   intel-compute-runtime,
+  spirv-llvm-translator,
   emptyDirectory,
+  lit,
   # TODO: llvmPackages.libcxx? libcxxStdenv?
   libcxx,
   rocmPackages ? {},
@@ -100,6 +102,7 @@
     }
       or (throw "Unsupported CPU architecture: ${stdenv.targetPlatform.parsed.cpu.name}");
 
+  # TODO: Don't build targets not pulled in by *Support = true
   targetsToBuild' = "${hostTarget};SPIRV;AMDGPU;NVPTX";
   targetsToBuild = "host;SPIRV;AMDGPU;NVPTX";
 
@@ -113,7 +116,12 @@
 
     version = "21.0.0-${srcOrig.rev}";
 
-    officialRelease = {};
+    # officialRelease = {};
+    officialRelease = null;
+    gitRelease = {
+      rev = srcOrig.rev;
+      rev-version = "21.0.0-unstable-2025-08-21";
+    };
 
     monorepoSrc = src;
 
@@ -442,16 +450,69 @@
 
     libclc =
       (llvmPkgs.libclc.override {
+        # buildPackages.spirv-llvm-translator = callPackage ({llvm}: emptyDirectory);
         # buildPackages.spirv-llvm-translator = null;
         llvm = overrides.llvm;
-      }).overrideAttrs (old: {
-        nativeBuildInputs = builtins.filter (x: !lib.strings.hasInfix "SPIRV-LLVM-Translator" (builtins.toString x)) old.nativeBuildInputs;
-        # e = throw (lib.strings.concatStringsSep ";" (builtins.map (x: builtins.toJSON x) old.nativeBuildInputs));
+      }).overrideAttrs (old:
+        #     let
+        #   tools =
+        #     runCommand "libclc-tools" {
+        #     } ''
+        #       mkdir -p $out/bin
+        #       ln -s ${llvmPkgs.clang}/bin/clang $out/bin/clang
+        #       for tool in llvm-as llvm-link opt llvm-spirv libclc-remangler
+        #       do
+        #         ln -s ${overrides.llvm}/bin/$tool $out/bin/$tool
+        #       done
+        #     '';
+        # in
+        {
+          # nativeBuildInputs = builtins.filter (x: !lib.strings.hasInfix "SPIRV-LLVM-Translator" (builtins.toString x)) old.nativeBuildInputs;
+          # nativeBuildInputs = builtins.filter (x: x != spirv-llvm-translator) old.nativeBuildInputs;
+          # nativeBuildInputs = builtins.filter (x: !(builtins.elem (lib.getName x) ["SPIRV-LLVM-Translator" "clang-only"])) old.nativeBuildInputs;
+          nativeBuildInputs = builtins.filter (x: lib.getName x != "SPIRV-LLVM-Translator") old.nativeBuildInputs;
+          # e = throw (lib.strings.concatStringsSep ";" (builtins.map (x: lib.getName x) old.nativeBuildInputs));
+          # e = throw (lib.strings.concatStringsSep ";" (builtins.toJSON nativeBuildInputs));
+          # e = throw (builtins.elemAt old.patches 0);
 
-        buildInputs = old.buildInputs ++ [zstd zlib];
+          buildInputs =
+            old.buildInputs
+            ++ [
+              zstd
+              zlib
+              # Required by libclc-remangler
+              llvmPkgs.clang.cc.dev
+            ];
 
-        patches = [];
-      });
+          # postPatch = ''
+          #   substituteInPlace CMakeLists.txt \
+          #     --replace-fail 'find_program( LLVM_CLANG clang PATHS ''${LLVM_TOOLS_BINARY_DIR} NO_DEFAULT_PATH )' \
+          #               'find_program( LLVM_CLANG clang PATHS "${llvmPkgs.clang.cc}/bin" NO_DEFAULT_PATH )' \
+          # '';
+          # preConfigure = ''
+          #   #   export CC=${stdenv.cc}/bin/clang
+          #   export NIX_DEBUG=1
+          #   echo $PATH
+          #   cat CMakeLists.txt
+          # '';
+          cmakeFlags = [
+            # Otherwise it'll misdetect the unwrapped just-built compiler as the compiler to use,
+            # and configure will fail to compile a basic test program with it.
+            (lib.cmakeFeature "CMAKE_C_COMPILER" "${stdenv.cc}/bin/clang")
+            (lib.cmakeFeature "LLVM_EXTERNAL_LIT" "${lit}/bin/lit")
+            # (lib.cmakeFeature "LIBCLC_CUSTOM_LLVM_TOOLS_BINARY_DIR" "${tools}")
+          ];
+
+          patches =
+            # (builtins.filter (x: lib.getName x != "use-default-paths.patch") old.patches)
+            # TODO: This is brittle
+            [(builtins.head old.patches)]
+            ++ [
+              ./libclc-use-default-paths.patch
+              ./libclc-remangler.patch
+              ./libclc-find-clang.patch
+            ];
+        });
 
     # libclc = callPackage ./libclc {
     #   buildLlvmTools = llvmPkgs // overrides;
@@ -485,7 +546,13 @@
 
       nativeBuildInputs = [cmake ninja] ++ unified-runtime'.nativeBuildInputs;
 
-      buildInputs = [overrides.xpti overrides.opencl-aot] ++ unified-runtime'.buildInputs;
+      buildInputs =
+        [
+          overrides.xpti
+          overrides.opencl-aot
+          overrides.llvm
+        ]
+        ++ unified-runtime'.buildInputs;
 
       cmakeFlags =
         [

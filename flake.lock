@@ -20,11 +20,11 @@
     },
     "nixpkgs": {
       "locked": {
-        "lastModified": 1756141062,
-        "narHash": "sha256-1/f97FnpGmm09lniRDZs7occthrFxLCRDtorNnCLrUM=",
+        "lastModified": 1756221409,
+        "narHash": "sha256-S/LyGUv56BVE+uEkkPcm4QB6dq4UBvAKNBr4CYY6OHM=",
         "owner": "blenderfreaky",
         "repo": "nixpkgs",
-        "rev": "13161df9051d2fd7035d7ad7e7b28498b83143c8",
+        "rev": "c795b23998dd727ecf1ab0fd6432dbf8988f3233",
         "type": "github"
       },
       "original": {

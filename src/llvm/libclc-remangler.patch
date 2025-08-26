@@ -1,7 +1,7 @@
-diff --git a/libclc/utils/libclc-remangler/CMakeLists.txt b/libclc/utils/libclc-remangler/CMakeLists.txt
+diff --git a/utils/libclc-remangler/CMakeLists.txt b/utils/libclc-remangler/CMakeLists.txt
 index c764eed682f0..93c658eea263 100644
---- a/libclc/utils/libclc-remangler/CMakeLists.txt
-+++ b/libclc/utils/libclc-remangler/CMakeLists.txt
+--- a/utils/libclc-remangler/CMakeLists.txt
++++ b/utils/libclc-remangler/CMakeLists.txt
 @@ -1,30 +1,47 @@
 -# Setup libclc-remangler
 -set(LLVM_LINK_COMPONENTS
