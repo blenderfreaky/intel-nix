@@ -29,7 +29,7 @@ in
     buildInputs = [
       oneTBB
       ocl-icd
-      llvm.baseLlvm.openmp
+      llvm.openmp
       gcc
     ];
 

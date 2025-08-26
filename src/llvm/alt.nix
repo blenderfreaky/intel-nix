@@ -33,7 +33,7 @@
   openclSupport ? true,
   # Broken
   cudaSupport ? false,
-  rocmSupport ? true,
+  rocmSupport ? false,
   rocmGpuTargets ? builtins.concatStringsSep ";" rocmPackages.clr.gpuTargets,
   nativeCpuSupport ? false,
   vulkanSupport ? true,
@@ -64,8 +64,8 @@
       owner = "intel";
       repo = "llvm";
       # tag = "v${version}";
-      rev = "8000760fc6448f61038670a71866c2f9876c000c";
-      hash = "sha256-Fgioiw98c6gTP3xCaIoTAjOoz2mqudmG9Vdyx5h3pSc=";
+      rev = "6927aef5bfe9b6d497cd9bc7d978655b682b6b91";
+      hash = "sha256-vj04YqJY/Bdt8YMLE/YY1XsbrCdIX9hrGSxwcBzS2ho=";
     };
 
     patches = [
@@ -449,6 +449,8 @@
         # e = throw (lib.strings.concatStringsSep ";" (builtins.map (x: builtins.toJSON x) old.nativeBuildInputs));
 
         buildInputs = old.buildInputs ++ [zstd zlib];
+
+        patches = [];
       });
 
     # libclc = callPackage ./libclc {

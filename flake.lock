@@ -20,16 +20,16 @@
     },
     "nixpkgs": {
       "locked": {
-        "lastModified": 1755722478,
-        "narHash": "sha256-rYkeY2toCSJXyBVtay9tgsE4Qnu7EfKIKvAkjVkJYpA=",
+        "lastModified": 1756141062,
+        "narHash": "sha256-1/f97FnpGmm09lniRDZs7occthrFxLCRDtorNnCLrUM=",
         "owner": "blenderfreaky",
         "repo": "nixpkgs",
-        "rev": "8723c23120229cabfde178a61e99ce3d9113c050",
+        "rev": "13161df9051d2fd7035d7ad7e7b28498b83143c8",
         "type": "github"
       },
       "original": {
         "owner": "blenderfreaky",
-        "ref": "fix/llvm-libclc",
+        "ref": "other/intel-cherry-picks-2",
         "repo": "nixpkgs",
         "type": "github"
       }

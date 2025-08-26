@@ -26,18 +26,18 @@
     #inherit llvm;
   };
 
-  spirv-llvm-translator = callPackage ./spirv-llvm-translator.nix {};
+  # spirv-llvm-translator = callPackage ./spirv-llvm-translator.nix {};
 
-  spirv-llvm-translator-tests = lib.genAttrs [
-    "14"
-    "15"
-    "16"
-    "17"
-    "18"
-    "19"
-    "20"
-    "21"
-  ] (version: spirv-llvm-translator.override {llvm = pkgs."llvm_${version}";});
+  # spirv-llvm-translator-tests = lib.genAttrs [
+  #   "14"
+  #   "15"
+  #   "16"
+  #   "17"
+  #   "18"
+  #   "19"
+  #   "20"
+  #   "21"
+  # ] (version: spirv-llvm-translator.override {llvm = pkgs."llvm_${version}";});
   oneapi-ck = callPackage ./oneapi-ck.nix {};
 
   khronos-sycl-cts = callPackage ./khronos-sycl-cts.nix {mkDerivation = llvm.stdenv.mkDerivation;};
