@@ -25,6 +25,7 @@
   overrideCC,
   intel-compute-runtime,
   spirv-llvm-translator,
+  pkg-config,
   emptyDirectory,
   lit,
   # TODO: llvmPackages.libcxx? libcxxStdenv?
@@ -480,6 +481,10 @@
           ];
       });
 
+    vc-intrinsics = vc-intrinsics.override {
+      # llvmPackages_21 = llvmPkgs // overrides;
+    };
+
     sycl = stdenv.mkDerivation (finalAttrs: {
       pname = "sycl";
       inherit version;
@@ -505,13 +510,17 @@
       sourceRoot = "${finalAttrs.src.name}/llvm";
       # sourceRoot = "${finalAttrs.src.name}/sycl";
 
-      nativeBuildInputs = [cmake ninja] ++ unified-runtime'.nativeBuildInputs;
+      nativeBuildInputs = [cmake ninja pkg-config] ++ unified-runtime'.nativeBuildInputs;
 
       buildInputs =
         [
           overrides.xpti
+          overrides.xptifw
           overrides.opencl-aot
           overrides.llvm
+          overrides.vc-intrinsics
+          (zstd.override {enableStatic = true;})
+          zlib
         ]
         ++ unified-runtime'.buildInputs;
 
@@ -522,6 +531,9 @@
 
           "-DLLVM_EXTERNAL_PROJECTS=sycl;xpti;xptifw;sycl-jit"
           "-DLLVM_EXTERNAL_XPTI_SOURCE_DIR=/build/${finalAttrs.src.name}/xpti"
+          "-DLLVM_EXTERNAL_XPTIFW_SOURCE_DIR=/build/${finalAttrs.src.name}/xptifw"
+
+          # "-DLLVM_USE_STATIC_ZSTD=OFF"
 
           "-DSYCL_ENABLE_XPTI_TRACING=ON"
           # "-DSYCL_ENABLE_BACKENDS=level_zero;level_zero_v2;cuda;hip"
@@ -536,9 +548,17 @@
           "-DSYCL_ENABLE_WERROR=ON"
           "-DSYCL_BUILD_PI_HIP_PLATFORM=AMD"
 
+          (lib.cmakeFeature "SYCL_COMPILER_VERSION" date)
+
+          (lib.cmakeBool "SYCL_UR_USE_FETCH_CONTENT" false)
+
           # Lookup broken
           (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_EMHASH" "${deps.emhash}")
-          (lib.cmakeBool "SYCL_UR_USE_FETCH_CONTENT" false)
+
+          # These can be switched over to nixpkgs versions once they're updated
+          # See: https://github.com/NixOS/nixpkgs/pull/428558
+          (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_OCL-HEADERS" "${deps.opencl-headers}")
+          (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_OCL-ICD" "${deps.opencl-icd-loader}")
         ]
         ++ unified-runtime'.cmakeFlags;
     });
