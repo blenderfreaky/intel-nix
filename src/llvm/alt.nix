@@ -450,74 +450,35 @@
 
     libclc =
       (llvmPkgs.libclc.override {
-        # buildPackages.spirv-llvm-translator = callPackage ({llvm}: emptyDirectory);
-        # buildPackages.spirv-llvm-translator = null;
         llvm = overrides.llvm;
-      }).overrideAttrs (old:
-        #     let
-        #   tools =
-        #     runCommand "libclc-tools" {
-        #     } ''
-        #       mkdir -p $out/bin
-        #       ln -s ${llvmPkgs.clang}/bin/clang $out/bin/clang
-        #       for tool in llvm-as llvm-link opt llvm-spirv libclc-remangler
-        #       do
-        #         ln -s ${overrides.llvm}/bin/$tool $out/bin/$tool
-        #       done
-        #     '';
-        # in
-        {
-          # nativeBuildInputs = builtins.filter (x: !lib.strings.hasInfix "SPIRV-LLVM-Translator" (builtins.toString x)) old.nativeBuildInputs;
-          # nativeBuildInputs = builtins.filter (x: x != spirv-llvm-translator) old.nativeBuildInputs;
-          # nativeBuildInputs = builtins.filter (x: !(builtins.elem (lib.getName x) ["SPIRV-LLVM-Translator" "clang-only"])) old.nativeBuildInputs;
-          nativeBuildInputs = builtins.filter (x: lib.getName x != "SPIRV-LLVM-Translator") old.nativeBuildInputs;
-          # e = throw (lib.strings.concatStringsSep ";" (builtins.map (x: lib.getName x) old.nativeBuildInputs));
-          # e = throw (lib.strings.concatStringsSep ";" (builtins.toJSON nativeBuildInputs));
-          # e = throw (builtins.elemAt old.patches 0);
+      }).overrideAttrs (old: {
+        nativeBuildInputs = builtins.filter (x: lib.getName x != "SPIRV-LLVM-Translator") old.nativeBuildInputs;
 
-          buildInputs =
-            old.buildInputs
-            ++ [
-              zstd
-              zlib
-              # Required by libclc-remangler
-              llvmPkgs.clang.cc.dev
-            ];
-
-          # postPatch = ''
-          #   substituteInPlace CMakeLists.txt \
-          #     --replace-fail 'find_program( LLVM_CLANG clang PATHS ''${LLVM_TOOLS_BINARY_DIR} NO_DEFAULT_PATH )' \
-          #               'find_program( LLVM_CLANG clang PATHS "${llvmPkgs.clang.cc}/bin" NO_DEFAULT_PATH )' \
-          # '';
-          # preConfigure = ''
-          #   #   export CC=${stdenv.cc}/bin/clang
-          #   export NIX_DEBUG=1
-          #   echo $PATH
-          #   cat CMakeLists.txt
-          # '';
-          cmakeFlags = [
-            # Otherwise it'll misdetect the unwrapped just-built compiler as the compiler to use,
-            # and configure will fail to compile a basic test program with it.
-            (lib.cmakeFeature "CMAKE_C_COMPILER" "${stdenv.cc}/bin/clang")
-            (lib.cmakeFeature "LLVM_EXTERNAL_LIT" "${lit}/bin/lit")
-            # (lib.cmakeFeature "LIBCLC_CUSTOM_LLVM_TOOLS_BINARY_DIR" "${tools}")
+        buildInputs =
+          old.buildInputs
+          ++ [
+            zstd
+            zlib
+            # Required by libclc-remangler
+            llvmPkgs.clang.cc.dev
           ];
 
-          patches =
-            # (builtins.filter (x: lib.getName x != "use-default-paths.patch") old.patches)
-            # TODO: This is brittle
-            [(builtins.head old.patches)]
-            ++ [
-              ./libclc-use-default-paths.patch
-              ./libclc-remangler.patch
-              ./libclc-find-clang.patch
-            ];
-        });
+        cmakeFlags = [
+          # Otherwise it'll misdetect the unwrapped just-built compiler as the compiler to use,
+          # and configure will fail to compile a basic test program with it.
+          (lib.cmakeFeature "CMAKE_C_COMPILER" "${stdenv.cc}/bin/clang")
+          (lib.cmakeFeature "LLVM_EXTERNAL_LIT" "${lit}/bin/lit")
+        ];
 
-    # libclc = callPackage ./libclc {
-    #   buildLlvmTools = llvmPkgs // overrides;
-    #   getVersionFile = x: [];
-    # };
+        patches =
+          # TODO: This is brittle
+          [(builtins.head old.patches)]
+          ++ [
+            ./libclc-use-default-paths.patch
+            ./libclc-remangler.patch
+            ./libclc-find-clang.patch
+          ];
+      });
 
     sycl = stdenv.mkDerivation (finalAttrs: {
       pname = "sycl";
