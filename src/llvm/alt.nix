@@ -478,7 +478,13 @@
             ./libclc-use-default-paths.patch
             ./libclc-remangler.patch
             ./libclc-find-clang.patch
+            # ./libclc-utils.patch
           ];
+
+        preInstall = ''
+          # TODO: Figure out why this is needed
+          cp utils/prepare_builtins prepare_builtins
+        '';
       });
 
     vc-intrinsics = vc-intrinsics.override {
@@ -501,14 +507,15 @@
       # '';
       inherit src;
 
-      # patches = [./sycl.patch];
+      patches = [./sycl.patch];
       postPatch = ''
-        substituteInPlace ../sycl/CMakeLists.txt \
-          --replace-fail 'message(FATAL_ERROR "opencl external project required but not found.")' 'find_package(OpenCL REQUIRED)'
+        # # substituteInPlace ../sycl/CMakeLists.txt \
+        # substituteInPlace CMakeLists.txt \
+        #   --replace-fail 'message(FATAL_ERROR "opencl external project required but not found.")' 'find_package(OpenCL REQUIRED)'
       '';
 
-      sourceRoot = "${finalAttrs.src.name}/llvm";
-      # sourceRoot = "${finalAttrs.src.name}/sycl";
+      # sourceRoot = "${finalAttrs.src.name}/llvm";
+      sourceRoot = "${finalAttrs.src.name}/sycl";
 
       nativeBuildInputs = [cmake ninja pkg-config] ++ unified-runtime'.nativeBuildInputs;
 
@@ -518,20 +525,31 @@
           overrides.xptifw
           overrides.opencl-aot
           overrides.llvm
+          llvmPkgs.clang
+          llvmPkgs.clang.cc.dev
           overrides.vc-intrinsics
           (zstd.override {enableStatic = true;})
           zlib
         ]
         ++ unified-runtime'.buildInputs;
 
+      # preBuild = ''
+      #   ${tree}/bin/tree
+      #   echo ----
+      #   ${tree}/bin/tree tools
+      # '';
+
       cmakeFlags =
         [
-          # "-DLLVM_ENABLE_PROJECTS=sycl;opencl;xpti;xptifw;sycl-jit;libclc"
-          "-DLLVM_ENABLE_PROJECTS=sycl;sycl-jit"
+          "-DSYCL_UR_SOURCE_DIR=/build/${finalAttrs.src.name}/unified-runtime"
 
-          "-DLLVM_EXTERNAL_PROJECTS=sycl;xpti;xptifw;sycl-jit"
+          # "-DLLVM_ENABLE_PROJECTS=sycl;opencl;xpti;xptifw;sycl-jit;libclc"
+          # "-DLLVM_ENABLE_PROJECTS=sycl;sycl-jit"
+
+          # "-DLLVM_EXTERNAL_PROJECTS=sycl;xpti;xptifw;sycl-jit"
           "-DLLVM_EXTERNAL_XPTI_SOURCE_DIR=/build/${finalAttrs.src.name}/xpti"
           "-DLLVM_EXTERNAL_XPTIFW_SOURCE_DIR=/build/${finalAttrs.src.name}/xptifw"
+          "-DLLVM_EXTERNAL_SYCL_JIT_SOURCE_DIR=/build/${finalAttrs.src.name}/sycl-jit"
 
           # "-DLLVM_USE_STATIC_ZSTD=OFF"
 

@@ -1,8 +1,17 @@
-diff --git a/../sycl/CMakeLists.txt b/../sycl/CMakeLists.txt
-index 4ecf9da2f84d..e59cc2090a80 100644
---- a/../sycl/CMakeLists.txt
-+++ b/../sycl/CMakeLists.txt
-@@ -144,11 +144,7 @@ set(CLANG_VERSION "${CLANG_VERSION_MAJOR}.${CLANG_VERSION_MINOR}.${CLANG_VERSION
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 4ecf9da2f84d..f821faf18cc6 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -128,6 +128,8 @@ option(SYCL_ENABLE_XPTI_TRACING "Enable tracing of SYCL constructs" OFF)
+ include(VersionFromVCS)
+ set(PACKAGE_VERSION "${LLVM_PACKAGE_VERSION}")
+ 
++find_package(Clang REQUIRED CONFIG)
++
+ # If CLANG_VERSION_* is specified, use it, if not use LLVM_VERSION_*.
+ if(NOT DEFINED CLANG_VERSION_MAJOR)
+   set(CLANG_VERSION_MAJOR ${LLVM_VERSION_MAJOR})
+@@ -144,11 +146,8 @@ set(CLANG_VERSION "${CLANG_VERSION_MAJOR}.${CLANG_VERSION_MINOR}.${CLANG_VERSION
  set(SYCL_INCLUDE_DIR "include")
  set(SYCL_INCLUDE_BUILD_DIR ${LLVM_BINARY_DIR}/${SYCL_INCLUDE_DIR})
  
@@ -11,6 +20,7 @@ index 4ecf9da2f84d..e59cc2090a80 100644
 -if(OPENCL_PROJ_FOUND EQUAL -1)
 -  message(FATAL_ERROR "opencl external project required but not found.")
 -endif()
++# TODO: Ensure we use opencl-aot from the LLVM External Project from this tree, not just generic OpenCL
 +find_package(OpenCL REQUIRED)
  
  if(NOT OpenCL_FOUND)
