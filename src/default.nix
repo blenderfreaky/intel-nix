@@ -15,6 +15,8 @@
 
   hdr-histogram = callPackage ./hdr-histogram.nix {};
   emhash = callPackage ./emhash.nix {};
+  parallel-hashmap = callPackage ./parallel-hashmap.nix {};
+
   vc-intrinsics = callPackage ./vc-intrinsics.nix {};
 
   oneMath-sycl-blas = callPackage ./onemath-sycl-blas.nix {inherit llvm;};
