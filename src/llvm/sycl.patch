@@ -1,8 +1,19 @@
 diff --git a/CMakeLists.txt b/CMakeLists.txt
-index 4ecf9da2f84d..f821faf18cc6 100644
+index 4ecf9da2f84d..9fd3d62deda2 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
-@@ -128,6 +128,8 @@ option(SYCL_ENABLE_XPTI_TRACING "Enable tracing of SYCL constructs" OFF)
+@@ -39,6 +39,10 @@ if (NOT XPTI_PROXY_SRC)
+   set(XPTI_PROXY_SRC ${CMAKE_CURRENT_SOURCE_DIR}/../xpti/src/xpti_proxy.cpp)
+ endif()
+ 
++find_package(LLVM REQUIRED HINTS "${LLVM_CMAKE_DIR}")
++list(APPEND CMAKE_MODULE_PATH "${LLVM_DIR}")
++include(AddLLVM)
++
+ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules")
+ include(AddSYCLExecutable)
+ include(AddSYCL)
+@@ -128,6 +132,8 @@ option(SYCL_ENABLE_XPTI_TRACING "Enable tracing of SYCL constructs" OFF)
  include(VersionFromVCS)
  set(PACKAGE_VERSION "${LLVM_PACKAGE_VERSION}")
  
@@ -11,9 +22,12 @@ index 4ecf9da2f84d..f821faf18cc6 100644
  # If CLANG_VERSION_* is specified, use it, if not use LLVM_VERSION_*.
  if(NOT DEFINED CLANG_VERSION_MAJOR)
    set(CLANG_VERSION_MAJOR ${LLVM_VERSION_MAJOR})
-@@ -144,11 +146,8 @@ set(CLANG_VERSION "${CLANG_VERSION_MAJOR}.${CLANG_VERSION_MINOR}.${CLANG_VERSION
+@@ -142,13 +148,10 @@ endif()
+ set(CLANG_VERSION "${CLANG_VERSION_MAJOR}.${CLANG_VERSION_MINOR}.${CLANG_VERSION_PATCHLEVEL}")
+ 
  set(SYCL_INCLUDE_DIR "include")
- set(SYCL_INCLUDE_BUILD_DIR ${LLVM_BINARY_DIR}/${SYCL_INCLUDE_DIR})
+-set(SYCL_INCLUDE_BUILD_DIR ${LLVM_BINARY_DIR}/${SYCL_INCLUDE_DIR})
++set(SYCL_INCLUDE_BUILD_DIR ${CMAKE_BINARY_DIR}/${SYCL_INCLUDE_DIR})
  
 -add_llvm_external_project(opencl)
 -list(FIND LLVM_ENABLE_PROJECTS opencl OPENCL_PROJ_FOUND)

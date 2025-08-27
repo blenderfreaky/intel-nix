@@ -538,10 +538,18 @@
       #   echo ----
       #   ${tree}/bin/tree tools
       # '';
+      #
+      preConfigure = ''
+        chmod u+w .
+        mkdir -p build/include-build-dir
+      '';
 
       cmakeFlags =
         [
           "-DSYCL_UR_SOURCE_DIR=/build/${finalAttrs.src.name}/unified-runtime"
+          # "-DSYCL_INCLUDE_BUILD_DIR=/build/${finalAttrs.src.name}/build/include-build-dir"
+
+          (lib.cmakeFeature "LLVM_EXTERNAL_LIT" "${lit}/bin/lit")
 
           # "-DLLVM_ENABLE_PROJECTS=sycl;opencl;xpti;xptifw;sycl-jit;libclc"
           # "-DLLVM_ENABLE_PROJECTS=sycl;sycl-jit"
@@ -553,15 +561,19 @@
 
           # "-DLLVM_USE_STATIC_ZSTD=OFF"
 
-          "-DSYCL_ENABLE_XPTI_TRACING=ON"
+          # TODO: Reenable!
+          # "-DSYCL_ENABLE_XPTI_TRACING=ON"
           # "-DSYCL_ENABLE_BACKENDS=level_zero;level_zero_v2;cuda;hip"
           "-DSYCL_ENABLE_BACKENDS=${lib.strings.concatStringsSep ";" unified-runtime'.backends}"
 
+          "-DLLVM_INCLUDE_TESTS=ON"
           "-DSYCL_INCLUDE_TESTS=ON"
 
           "-DSYCL_ENABLE_WERROR=ON"
 
-          "-DSYCL_ENABLE_EXTENSION_JIT=ON"
+          # TODO: REENABLE!
+          "-DSYCL_ENABLE_EXTENSION_JIT=OFF"
+          # "-DSYCL_ENABLE_EXTENSION_JIT=ON"
           "-DSYCL_ENABLE_MAJOR_RELEASE_PREVIEW_LIB=ON"
           "-DSYCL_ENABLE_WERROR=ON"
           "-DSYCL_BUILD_PI_HIP_PLATFORM=AMD"
@@ -579,6 +591,27 @@
           (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_OCL-ICD" "${deps.opencl-icd-loader}")
         ]
         ++ unified-runtime'.cmakeFlags;
+    });
+
+    sycl-jit = stdenv.mkDerivation (finalAttrs: {
+      pname = "sycl-jit";
+      inherit version;
+
+      inherit src;
+
+      sourceRoot = "${finalAttrs.src.name}/sycl-jit";
+
+      nativeBuildInputs = [cmake ninja];
+
+      # buildInputs = [ llvm ];
+
+      # cmakeFlags = [
+      #   "-DSYCL_ENABLE_WERROR=ON"
+      #   "-DSYCL_ENABLE_EXTENSION_JIT=ON"
+      #   "-DSYCL_ENABLE_MAJOR_RELEASE_PREVIEW_LIB=ON"
+      #   "-DSYCL_ENABLE_WERROR=ON"
+      #   "-DSYCL_BUILD_PI_HIP_PLATFORM=AMD"
+      # ];
     });
 
     clang-unwrapped = (llvmPkgs.clang-unwrapped.override {}).overrideAttrs (old: {
