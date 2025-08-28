@@ -412,18 +412,16 @@
         cp -r ${src}/opencl "$out"
         # cp -r ${src}/cmake "$out"
 
-        # chmod u+w "$out/opencl"
-        mkdir -p "$out/cmake"
-        cp -r ${src}/unified-runtime/cmake/FetchOpenCL.cmake "$out/cmake"
-
-        # mkdir -p "$out/sycl/llvm/cmake"
-        # mkdir -p "$out/llvm"
-        # cp -r ${src}/llvm/cmake "$out/llvm"
-        # cp -r ${src}/llvm/cmake/modules "$out/llvm/cmake/modules"
+        # mkdir -p "$out/cmake"
+        mkdir -p "$out/unified-runtime/cmake"
+        cp -r ${src}/unified-runtime/cmake/FetchOpenCL.cmake "$out/unified-runtime/cmake"
       '';
       # inherit src;
       #
-      patches = [./opencl-aot.patch];
+      patches = [
+        ./opencl.patch
+        # ./opencl-aot.patch
+      ];
 
       sourceRoot = "${finalAttrs.src.name}/opencl";
       # sourceRoot = "${finalAttrs.src.name}/sycl";
@@ -442,8 +440,9 @@
       # buildInputs = [overrides.xpti] ++ unified-runtime'.buildInputs;
 
       cmakeFlags = [
-        "-DLLVM_TARGETS_TO_BUILD=${targetsToBuild'}"
-        "-DCMAKE_MODULE_PATH=${finalAttrs.src}/cmake"
+        # "-DLLVM_TARGETS_TO_BUILD=${targetsToBuild'}"
+        # "-DCMAKE_MODULE_PATH=${finalAttrs.src}/cmake"
+        "-DLLVM_BUILD_TOOLS=ON"
         (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_OCL-HEADERS" "${deps.opencl-headers}")
         (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_OCL-ICD" "${deps.opencl-icd-loader}")
       ];
@@ -527,7 +526,7 @@
           overrides.llvm
           llvmPkgs.clang
           llvmPkgs.clang.cc.dev
-          overrides.vc-intrinsics
+          # overrides.vc-intrinsics
           (zstd.override {enableStatic = true;})
           zlib
         ]
