@@ -270,14 +270,17 @@
 
             # TODO: Only enable conditionally
             # Maybe conditional will cause issues with libclc (looking at buildbot/configure.py)
-            "-DLLVM_TARGETS_TO_BUILD=${targetsToBuild}"
+            # ??
+
+            # # This cuts build time a bit but I'm unsure if this should be kept
+            # "-DLLVM_TARGETS_TO_BUILD=${targetsToBuild}"
 
             # "-DLLVM_EXTERNAL_VC_INTRINSICS_SOURCE_DIR=${vc-intrinsics.src}"
             #"-DLLVM_EXTERNAL_PROJECTS=sycl;llvm-spirv;opencl;xpti;xptifw;libdevice;sycl-jit"
             # "-DLLVM_EXTERNAL_PROJECTS=sycl;llvm-spirv"
-            "-DLLVM_EXTERNAL_PROJECTS=llvm-spirv"
+            # "-DLLVM_EXTERNAL_PROJECTS=llvm-spirv"
             # "-DLLVM_EXTERNAL_SYCL_SOURCE_DIR=/build/${src'.name}/sycl"
-            "-DLLVM_EXTERNAL_LLVM_SPIRV_SOURCE_DIR=/build/${src'.name}/llvm-spirv"
+            # "-DLLVM_EXTERNAL_LLVM_SPIRV_SOURCE_DIR=/build/${src'.name}/llvm-spirv"
             #"-DLLVM_EXTERNAL_XPTI_SOURCE_DIR=/build/${src'.name}/xpti"
             #"-DXPTI_SOURCE_DIR=/build/${src'.name}/xpti"
             #"-DLLVM_EXTERNAL_XPTIFW_SOURCE_DIR=/build/${src'.name}/xptifw"
@@ -288,26 +291,26 @@
 
             # These require clang, which we don't have at this point.
             # TODO: Build these later, e.g. in passthru.tests
-            "-DLLVM_SPIRV_INCLUDE_TESTS=OFF"
+            # "-DLLVM_SPIRV_INCLUDE_TESTS=OFF"
 
-            "-DLLVM_SPIRV_ENABLE_LIBSPIRV_DIS=ON"
+            # "-DLLVM_SPIRV_ENABLE_LIBSPIRV_DIS=ON"
 
             "-DLLVM_BUILD_TOOLS=ON"
 
-            "-DSYCL_ENABLE_XPTI_TRACING=ON"
-            "-DSYCL_ENABLE_BACKENDS=level_zero;level_zero_v2;cuda;hip"
+            # "-DSYCL_ENABLE_XPTI_TRACING=ON"
+            # "-DSYCL_ENABLE_BACKENDS=level_zero;level_zero_v2;cuda;hip"
 
-            "-DSYCL_INCLUDE_TESTS=ON"
+            # "-DSYCL_INCLUDE_TESTS=ON"
 
-            "-DSYCL_ENABLE_WERROR=ON"
+            # "-DSYCL_ENABLE_WERROR=ON"
 
-            # # Currently broken. IDK if this is even useful though.
-            # "-DLLVM_USE_STATIC_ZSTD=ON"
+            # # # Currently broken. IDK if this is even useful though.
+            # # "-DLLVM_USE_STATIC_ZSTD=ON"
 
-            "-DSYCL_ENABLE_EXTENSION_JIT=ON"
-            "-DSYCL_ENABLE_MAJOR_RELEASE_PREVIEW_LIB=ON"
-            "-DSYCL_ENABLE_WERROR=ON"
-            "-DSYCL_BUILD_PI_HIP_PLATFORM=AMD"
+            # "-DSYCL_ENABLE_EXTENSION_JIT=ON"
+            # "-DSYCL_ENABLE_MAJOR_RELEASE_PREVIEW_LIB=ON"
+            # "-DSYCL_ENABLE_WERROR=ON"
+            # "-DSYCL_BUILD_PI_HIP_PLATFORM=AMD"
 
             # (if pkgs.stdenv.cc.isClang then throw "hiii" else "")
           ]
@@ -470,15 +473,12 @@
           (lib.cmakeFeature "LLVM_EXTERNAL_LIT" "${lit}/bin/lit")
         ];
 
-        patches =
-          # TODO: This is brittle
-          [(builtins.head old.patches)]
-          ++ [
-            ./libclc-use-default-paths.patch
-            ./libclc-remangler.patch
-            ./libclc-find-clang.patch
-            # ./libclc-utils.patch
-          ];
+        patches = [
+          ./libclc-use-default-paths.patch
+          ./libclc-remangler.patch
+          ./libclc-find-clang.patch
+          # ./libclc-utils.patch
+        ];
 
         preInstall = ''
           # TODO: Figure out why this is needed
@@ -489,6 +489,33 @@
     vc-intrinsics = vc-intrinsics.override {
       # llvmPackages_21 = llvmPkgs // overrides;
     };
+
+    # spirv-llvm-translator = stdenv.mkDerivation (finalAttrs: {
+    #   pname = "SPIRV-LLVM-Translator";
+    #   inherit version;
+    #   inherit src;
+    #   sourceRoot = "${finalAttrs.src.name}/llvm-spirv";
+
+    #   nativeBuildInputs = [
+    #     pkg-config
+    #     cmake
+    #     llvmPackages.llvm.dev
+    #   ];
+
+    #   buildInputs = [
+    #     spirv-headers
+    #     spirv-tools
+    #     llvmPackages.llvm
+    #   ];
+
+    #   nativeCheckInputs = [ lit ];
+
+    # });
+
+    spirv-llvm-translator = (spirv-llvm-translator.override {llvm = overrides.llvm;}).overrideAttrs (oldAttrs: {
+      inherit src;
+      sourceRoot = "${src.name}/llvm-spirv";
+    });
 
     sycl = stdenv.mkDerivation (finalAttrs: {
       pname = "sycl";
@@ -522,6 +549,7 @@
         [
           overrides.xpti
           overrides.xptifw
+          # Might need to be propagated
           overrides.opencl-aot
           overrides.llvm
           llvmPkgs.clang

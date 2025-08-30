@@ -1,5 +1,5 @@
 diff --git a/CMakeLists.txt b/CMakeLists.txt
-index 4ecf9da2f84d..9fd3d62deda2 100644
+index 4ecf9da2f84d..92c57a6a5c5a 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
 @@ -39,6 +39,10 @@ if (NOT XPTI_PROXY_SRC)
@@ -22,7 +22,7 @@ index 4ecf9da2f84d..9fd3d62deda2 100644
  # If CLANG_VERSION_* is specified, use it, if not use LLVM_VERSION_*.
  if(NOT DEFINED CLANG_VERSION_MAJOR)
    set(CLANG_VERSION_MAJOR ${LLVM_VERSION_MAJOR})
-@@ -142,13 +148,10 @@ endif()
+@@ -142,13 +148,12 @@ endif()
  set(CLANG_VERSION "${CLANG_VERSION_MAJOR}.${CLANG_VERSION_MINOR}.${CLANG_VERSION_PATCHLEVEL}")
  
  set(SYCL_INCLUDE_DIR "include")
@@ -36,6 +36,17 @@ index 4ecf9da2f84d..9fd3d62deda2 100644
 -endif()
 +# TODO: Ensure we use opencl-aot from the LLVM External Project from this tree, not just generic OpenCL
 +find_package(OpenCL REQUIRED)
++
++find_program(OPENCL_AOT_EXECUTABLE NAMES opencl-aot REQUIRED)
  
  if(NOT OpenCL_FOUND)
    # Copy OpenCL Headers into sycl headers build directory
+@@ -372,7 +377,7 @@ add_custom_target(sycl-compiler
+           llvm-objcopy
+           spirv-to-ir-wrapper
+           sycl-post-link
+-          opencl-aot
++          # opencl-aot
+ )
+ 
+ add_custom_target( sycl-runtime-libraries
