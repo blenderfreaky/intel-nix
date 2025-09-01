@@ -584,7 +584,7 @@
       patches = [
         ./sycl.patch
         ./sycl-build-ur.patch
-        ./sycl-incl.patch
+        # ./sycl-incl.patch
         # ./unified-runtime.patch
         # ./unified-runtime-2.patch
       ];
@@ -625,6 +625,8 @@
           # overrides.vc-intrinsics
           (zstd.override {enableStatic = true;})
           zlib
+
+          emhash
         ]
         ++ unified-runtime'.buildInputs;
 
@@ -634,13 +636,14 @@
       #   ${tree}/bin/tree tools
       # '';
       #
-      preConfigure = ''
-        chmod u+w .
-        mkdir -p build/include-build-dir
-      '';
+      # preConfigure = ''
+      #   chmod u+w .
+      #   mkdir -p build/include-build-dir
+      # '';
 
       cmakeFlags =
         [
+          # Used to find unified-runtime folder (`LLVM_SOURCE_DIR/../unified-runtime`)
           "-DLLVM_SOURCE_DIR=/build/${finalAttrs.src.name}/llvm"
           # "-DUR_INTREE_SOURCE_DIR=/build/${finalAttrs.src.name}/unified-runtime"
           # "-DSYCL_INCLUDE_BUILD_DIR=/build/${finalAttrs.src.name}/build/include-build-dir"
@@ -665,13 +668,12 @@
           "-DLLVM_INCLUDE_TESTS=ON"
           "-DSYCL_INCLUDE_TESTS=ON"
 
-          "-DSYCL_ENABLE_WERROR=ON"
+          # "-DSYCL_ENABLE_WERROR=ON"
 
           # TODO: REENABLE!
           "-DSYCL_ENABLE_EXTENSION_JIT=OFF"
           # "-DSYCL_ENABLE_EXTENSION_JIT=ON"
           "-DSYCL_ENABLE_MAJOR_RELEASE_PREVIEW_LIB=ON"
-          "-DSYCL_ENABLE_WERROR=ON"
           "-DSYCL_BUILD_PI_HIP_PLATFORM=AMD"
 
           (lib.cmakeFeature "SYCL_COMPILER_VERSION" date)
@@ -679,7 +681,7 @@
           (lib.cmakeBool "SYCL_UR_USE_FETCH_CONTENT" false)
 
           # # Lookup broken
-          (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_EMHASH" "${deps.emhash}")
+          # (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_EMHASH" "${deps.emhash}")
         ]
         ++ unified-runtime'.cmakeFlags;
     });

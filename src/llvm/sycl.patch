@@ -14,12 +14,13 @@ index f722f35ad1be..d910c1a46045 100644
  list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules")
  include(AddSYCLExecutable)
  include(AddSYCL)
-@@ -142,13 +147,13 @@ endif()
+@@ -142,13 +147,14 @@ endif()
  set(CLANG_VERSION "${CLANG_VERSION_MAJOR}.${CLANG_VERSION_MINOR}.${CLANG_VERSION_PATCHLEVEL}")
  
  set(SYCL_INCLUDE_DIR "include")
 -set(SYCL_INCLUDE_BUILD_DIR ${LLVM_BINARY_DIR}/${SYCL_INCLUDE_DIR})
 +set(SYCL_INCLUDE_BUILD_DIR ${CMAKE_BINARY_DIR}/${SYCL_INCLUDE_DIR})
++include_directories(${SYCL_INCLUDE_BUILD_DIR})
  
 -add_llvm_external_project(opencl)
 -list(FIND LLVM_ENABLE_PROJECTS opencl OPENCL_PROJ_FOUND)
