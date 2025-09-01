@@ -1,0 +1,21 @@
+diff --git a/libdevice/CMakeLists.txt b/libdevice/CMakeLists.txt
+index c3388fee6cc8..c3ab178f6d4d 100644
+--- a/libdevice/CMakeLists.txt
++++ b/libdevice/CMakeLists.txt
+@@ -1,11 +1,16 @@
+ # Utility project providing various functionalities for SPIR-V devices
+ # without native support of these functionalities.
+ 
++cmake_minimum_required(VERSION 3.20)
++
+ set(CMAKE_MODULE_PATH
+   ${CMAKE_MODULE_PATH}
+   "${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules"
+   )
+ 
++find_package(LLVM REQUIRED CONFIG)
++include(AddLLVM)
++
+ set(UR_INTREE_SOURCE_DIR "${LLVM_SOURCE_DIR}/../unified-runtime")
+ cmake_path(NORMAL_PATH UR_INTREE_SOURCE_DIR OUTPUT_VARIABLE UR_INTREE_SOURCE_DIR)
+ 

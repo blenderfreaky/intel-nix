@@ -661,7 +661,7 @@
           # "-DLLVM_USE_STATIC_ZSTD=OFF"
 
           # TODO: Reenable!
-          # "-DSYCL_ENABLE_XPTI_TRACING=ON"
+          "-DSYCL_ENABLE_XPTI_TRACING=OFF"
           # "-DSYCL_ENABLE_BACKENDS=level_zero;level_zero_v2;cuda;hip"
           "-DSYCL_ENABLE_BACKENDS=${lib.strings.concatStringsSep ";" unified-runtime'.backends}"
 
@@ -684,6 +684,21 @@
           # (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_EMHASH" "${deps.emhash}")
         ]
         ++ unified-runtime'.cmakeFlags;
+    });
+
+    libdevice = stdenv.mkDerivation (finalAttrs: {
+      pname = "libdevice";
+      inherit version;
+
+      inherit src;
+      sourceRoot = "${finalAttrs.src.name}/libdevice";
+
+      nativeBuildInputs = [cmake ninja];
+
+      patches = [./libdevice.patch];
+
+      cmakeFlags = [
+      ];
     });
 
     sycl-jit = stdenv.mkDerivation (finalAttrs: {
