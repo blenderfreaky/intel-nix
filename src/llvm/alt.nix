@@ -695,6 +695,12 @@
 
       nativeBuildInputs = [cmake ninja];
 
+      buildInputs = [
+        overrides.llvm
+        llvmPkgs.clang
+        llvmPkgs.clang-tools
+      ];
+
       patches = [./libdevice.patch];
 
       cmakeFlags = [

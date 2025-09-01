@@ -1,7 +1,7 @@
-diff --git a/libdevice/CMakeLists.txt b/libdevice/CMakeLists.txt
+diff --git a/CMakeLists.txt b/CMakeLists.txt
 index c3388fee6cc8..c3ab178f6d4d 100644
---- a/libdevice/CMakeLists.txt
-+++ b/libdevice/CMakeLists.txt
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
 @@ -1,11 +1,16 @@
  # Utility project providing various functionalities for SPIR-V devices
  # without native support of these functionalities.
