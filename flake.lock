@@ -20,16 +20,16 @@
     },
     "nixpkgs": {
       "locked": {
-        "lastModified": 1756496756,
-        "narHash": "sha256-0dDH+oTGxVlOt/52lFCerpeY4YPUsF2qhmbwzXYIa+I=",
-        "owner": "NixOS",
+        "lastModified": 1756728114,
+        "narHash": "sha256-kYu0NXoNXS4vDe1es1s287b7jW+fdBhCqojVgnRw7P0=",
+        "owner": "blenderfreaky",
         "repo": "nixpkgs",
-        "rev": "f86a07aba80db5dac364aa8dbac8b8747da81ace",
+        "rev": "0f4c6b8c5ea41bac16761d429b70570d48e30e96",
         "type": "github"
       },
       "original": {
-        "owner": "NixOS",
-        "ref": "staging",
+        "owner": "blenderfreaky",
+        "ref": "other/intel-cherry-picks",
         "repo": "nixpkgs",
         "type": "github"
       }

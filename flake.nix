@@ -3,9 +3,9 @@
 
   inputs = {
     # nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-    nixpkgs.url = "github:NixOS/nixpkgs/staging";
+    # nixpkgs.url = "github:NixOS/nixpkgs/staging";
     # nixpkgs-spirv.url = "github:NixOS/nixpkgs/pull/432015/head";
-    #nixpkgs.url = "github:blenderfreaky/nixpkgs/other/intel-cherry-picks";
+    nixpkgs.url = "github:blenderfreaky/nixpkgs/other/intel-cherry-picks";
     flake-utils.url = "github:numtide/flake-utils";
   };
 
@@ -46,16 +46,16 @@
                 };
               };
 
-              level-zero = prev.level-zero.overrideAttrs rec {
-                version = "1.24.2";
+              # level-zero = prev.level-zero.overrideAttrs rec {
+              #   version = "1.24.2";
 
-                src = pkgs.fetchFromGitHub {
-                  owner = "oneapi-src";
-                  repo = "level-zero";
-                  tag = "v${version}";
-                  hash = "sha256-5QkXWuMFNsYNsW8lgo9FQIZ5NuLiRZCFKGWedpddi8Y=";
-                };
-              };
+              #   src = pkgs.fetchFromGitHub {
+              #     owner = "oneapi-src";
+              #     repo = "level-zero";
+              #     tag = "v${version}";
+              #     hash = "sha256-5QkXWuMFNsYNsW8lgo9FQIZ5NuLiRZCFKGWedpddi8Y=";
+              #   };
+              # };
 
               # intel-compute-runtime = prev.intel-compute-runtime.overrideAttrs {
               #   version = "25.31.34666.3";

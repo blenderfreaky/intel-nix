@@ -96,16 +96,17 @@
         ]
         ++ lib.optionals levelZeroSupport [
           level-zero
-          (intel-compute-runtime.overrideAttrs {
-            version = "25.27.34303.6";
+          intel-compute-runtime
+          # (intel-compute-runtime.overrideAttrs {
+          #   version = "25.27.34303.6";
 
-            src = fetchFromGitHub {
-              owner = "intel";
-              repo = "compute-runtime";
-              tag = version;
-              hash = "sha256-AgdPhEAg9N15lNfcX/zQLxBUDTzEEvph+y0FYbB6iCs=";
-            };
-          })
+          #   src = fetchFromGitHub {
+          #     owner = "intel";
+          #     repo = "compute-runtime";
+          #     tag = version;
+          #     hash = "sha256-AgdPhEAg9N15lNfcX/zQLxBUDTzEEvph+y0FYbB6iCs=";
+          #   };
+          # })
         ]
         ++ lib.optionals vulkanSupport [
           vulkan-headers
