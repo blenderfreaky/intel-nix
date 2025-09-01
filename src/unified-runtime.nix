@@ -125,8 +125,8 @@
         # TODO: Update to a tag once a new release is available
         #       On current latest tag there's build issues that are resolved in later commits,
         #       so we use a newer commit for now.
-        rev = "3bd57a2a8644daf484435ca9296e81410355d3ed";
-        hash = "sha256-goJ5nqI79KwcFP9tq3++WhRAmhDZR5TMEdo6cs2NkEw=";
+        rev = "649062acea5f995d8994706f0aaafdd26dc7c032";
+        hash = "sha256-fCiK+HILl3YnyKGNzl0abHnuB+tyHp7jVPjrHOKpV/w=";
       };
 
       # src = fetchFromGitHub {
