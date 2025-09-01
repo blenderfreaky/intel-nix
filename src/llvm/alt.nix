@@ -581,11 +581,30 @@
       # '';
       inherit src;
 
-      patches = [./sycl.patch];
+      patches = [
+        ./sycl.patch
+        ./sycl-build-ur.patch
+        # ./unified-runtime.patch
+        # ./unified-runtime-2.patch
+      ];
+      # prePatch = ''
+      #   ls ../unified-runtime
+      #   cat ../unified-runtime/source/adapters/level_zero/common.cpp
+      # '';
       postPatch = ''
         # # substituteInPlace ../sycl/CMakeLists.txt \
         # substituteInPlace CMakeLists.txt \
         #   --replace-fail 'message(FATAL_ERROR "opencl external project required but not found.")' 'find_package(OpenCL REQUIRED)'
+
+        # `NO_CMAKE_PACKAGE_REGISTRY` prevents it from finding OpenCL, so we unset it
+        substituteInPlace ../unified-runtime/cmake/FetchOpenCL.cmake \
+          --replace-fail "NO_CMAKE_PACKAGE_REGISTRY" ""
+
+        pushd ../unified-runtime
+        chmod -R u+w .
+        patch -p1 < ${./unified-runtime.patch}
+        patch -p1 < ${./unified-runtime-2.patch}
+        popd
       '';
 
       # sourceRoot = "${finalAttrs.src.name}/llvm";

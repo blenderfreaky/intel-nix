@@ -23,11 +23,13 @@
   gtest,
   pkg-config,
   levelZeroSupport ? true,
+  # I don't think this can be off, so remove?
   openclSupport ? true,
   # Broken
   cudaSupport ? false,
   rocmSupport ? false,
   rocmGpuTargets ? builtins.concatStringsSep ";" rocmPackages.clr.gpuTargets,
+  # I don't think this can be off, so remove?
   vulkanSupport ? true,
   nativeCpuSupport ? true,
   buildTests ? false,
@@ -62,16 +64,12 @@
       name = "unified-runtime";
       inherit version;
 
-      nativeBuildInputs =
-        [
-          cmake
-          ninja
-          python3
-        ]
-        ++ lib.optionals levelZeroSupport [
-          # Only needed to find level-zero
-          pkg-config
-        ];
+      nativeBuildInputs = [
+        cmake
+        ninja
+        python3
+        pkg-config
+      ];
 
       buildInputs =
         [
@@ -143,17 +141,15 @@
         ctestCheckHook
       ];
 
-      postPatch = ''
-        # The latter is used everywhere except this one file. For some reason,
-        # the former is not set, at least when building with Nix, so we replace it.
-        # substituteInPlace cmake/helpers.cmake \
-        #   --replace-fail "PYTHON_EXECUTABLE" "Python3_EXECUTABLE"
+      patches = [
+        ./llvm/unified-runtime.patch
+        ./llvm/unified-runtime-2.patch
+      ];
 
-        # If we let it copy with default settings, it'll copy the permissions of the source files.
-        # As the source files of level zero point to the nix store, those permissions will make it non-writable.
-        # The build will try to write new files into directories that are now read-only.
-        # To avoid this, we set NO_SOURCE_PERMISSIONS.
-        # sed -i '/file(COPY / { /NO_SOURCE_PERMISSIONS/! s/)\s*$/ NO_SOURCE_PERMISSIONS)/ }' cmake/FetchLevelZero.cmake
+      postPatch = ''
+        # `NO_CMAKE_PACKAGE_REGISTRY` prevents it from finding OpenCL, so we unset it
+        substituteInPlace cmake/FetchOpenCL.cmake \
+          --replace-fail "NO_CMAKE_PACKAGE_REGISTRY" ""
       '';
 
       # preConfigure = ''
@@ -167,7 +163,8 @@
           (lib.cmakeBool "FETCHCONTENT_FULLY_DISCONNECTED" true)
           (lib.cmakeBool "FETCHCONTENT_QUIET" false)
 
-          (lib.cmakeBool "UR_ENABLE_LATENCY_HISTOGRAM" true)
+          # Currently broken
+          (lib.cmakeBool "UR_ENABLE_LATENCY_HISTOGRAM" false)
 
           # (lib.cmakeBool "UR_COMPUTE_RUNTIME_FETCH_REPO" false)
           # (lib.cmakeFeature "UR_COMPUTE_RUNTIME_REPO" "${compute-runtime}")
@@ -183,8 +180,8 @@
           (lib.cmakeBool "UR_BUILD_ADAPTER_NATIVE_CPU" nativeCpuSupport)
           # (lib.cmakeBool "UR_BUILD_ADAPTER_ALL" false)
 
-          (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_OCL-HEADERS" "${deps.opencl-headers}")
-          (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_OCL-ICD" "${deps.opencl-icd-loader}")
+          # (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_OCL-HEADERS" "${deps.opencl-headers}")
+          # (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_OCL-ICD" "${deps.opencl-icd-loader}")
         ]
         ++ lib.optionals cudaSupport [
           # (lib.cmakeFeature "CUDA_TOOLKIT_ROOT_DIR" "${cudaPackages.cudatoolkit}")
@@ -196,13 +193,12 @@
           (lib.cmakeFeature "UR_HIP_ROCM_DIR" "${rocmtoolkit_joined}")
           # (lib.cmakeFeature "UR_HIP_ROCM_DIR" "${rocmPackages.rocmPath}")
           (lib.cmakeFeature "AMDGPU_TARGETS" rocmGpuTargets)
-          # ]
-          # ++ lib.optionals levelZeroSupport [
+        ]
+        ++ lib.optionals levelZeroSupport [
+          # (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_exp-headers" "${deps.compute-runtime}")
+
           #   (lib.cmakeFeature "UR_LEVEL_ZERO_INCLUDE_DIR" "${lib.getInclude level-zero}/include/level_zero")
           #   (lib.cmakeFeature "UR_LEVEL_ZERO_LOADER_LIBRARY" "${lib.getLib level-zero}/lib/libze_loader.so")
-          # ]
-          # ++ lib.optionals buildTests [
-          #   (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_GOOGLETEST" "${gtest}")
         ];
 
       passthru = {

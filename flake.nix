@@ -57,14 +57,25 @@
               #   };
               # };
 
-              # intel-compute-runtime = prev.intel-compute-runtime.overrideAttrs {
-              #   version = "25.31.34666.3";
+              # intel-compute-runtime = prev.intel-compute-runtime.overrideAttrs rec {
+              #   version = "25.05.32567.17";
 
               #   src = pkgs.fetchFromGitHub {
               #     owner = "intel";
-              #     repo = "level-zero";
-              #     rev = "v22.35.1";
-              #     hash = "sha256-tn7+vzwLZ3MALFYWsBtDZCW0aoap1k4lZob50jI8dz8=";
+              #     repo = "compute-runtime";
+              #     rev = "${version}";
+              #     hash = "sha256-/9UQJ5Ng2ip+3cNcVZOtKAmnx4LpmPja+aTghIqF1bc=";
+              #   };
+              # };
+
+              # intel-compute-runtime = prev.intel-compute-runtime.overrideAttrs rec {
+              #   version = "25.05.32567.17";
+
+              #   src = pkgs.fetchFromGitHub {
+              #     owner = "intel";
+              #     repo = "compute-runtime";
+              #     rev = "${version}";
+              #     hash = "sha256-/9UQJ5Ng2ip+3cNcVZOtKAmnx4LpmPja+aTghIqF1bc=";
               #   };
               # };
             })

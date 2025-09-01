@@ -1,28 +1,20 @@
 diff --git a/CMakeLists.txt b/CMakeLists.txt
-index 4ecf9da2f84d..92c57a6a5c5a 100644
+index f722f35ad1be..d910c1a46045 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
-@@ -39,6 +39,10 @@ if (NOT XPTI_PROXY_SRC)
+@@ -39,6 +39,11 @@ if (NOT XPTI_PROXY_SRC)
    set(XPTI_PROXY_SRC ${CMAKE_CURRENT_SOURCE_DIR}/../xpti/src/xpti_proxy.cpp)
  endif()
  
-+find_package(LLVM REQUIRED HINTS "${LLVM_CMAKE_DIR}")
-+list(APPEND CMAKE_MODULE_PATH "${LLVM_DIR}")
++find_package(LLVM REQUIRED CONFIG)
 +include(AddLLVM)
++
++find_package(Clang REQUIRED CONFIG)
 +
  list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules")
  include(AddSYCLExecutable)
  include(AddSYCL)
-@@ -128,6 +132,8 @@ option(SYCL_ENABLE_XPTI_TRACING "Enable tracing of SYCL constructs" OFF)
- include(VersionFromVCS)
- set(PACKAGE_VERSION "${LLVM_PACKAGE_VERSION}")
- 
-+find_package(Clang REQUIRED CONFIG)
-+
- # If CLANG_VERSION_* is specified, use it, if not use LLVM_VERSION_*.
- if(NOT DEFINED CLANG_VERSION_MAJOR)
-   set(CLANG_VERSION_MAJOR ${LLVM_VERSION_MAJOR})
-@@ -142,13 +148,12 @@ endif()
+@@ -142,13 +147,13 @@ endif()
  set(CLANG_VERSION "${CLANG_VERSION_MAJOR}.${CLANG_VERSION_MINOR}.${CLANG_VERSION_PATCHLEVEL}")
  
  set(SYCL_INCLUDE_DIR "include")
@@ -34,19 +26,19 @@ index 4ecf9da2f84d..92c57a6a5c5a 100644
 -if(OPENCL_PROJ_FOUND EQUAL -1)
 -  message(FATAL_ERROR "opencl external project required but not found.")
 -endif()
-+# TODO: Ensure we use opencl-aot from the LLVM External Project from this tree, not just generic OpenCL
++# TODO: I'm unsure whether this will just link to regular OpenCL since both are present
 +find_package(OpenCL REQUIRED)
-+
++message(OpenCL_INCLUDE_DIR)
++# Ensure we actually have opencl-aot and not just regular OpenCL
 +find_program(OPENCL_AOT_EXECUTABLE NAMES opencl-aot REQUIRED)
  
  if(NOT OpenCL_FOUND)
    # Copy OpenCL Headers into sycl headers build directory
-@@ -372,7 +377,7 @@ add_custom_target(sycl-compiler
+@@ -372,7 +377,6 @@ add_custom_target(sycl-compiler
            llvm-objcopy
            spirv-to-ir-wrapper
            sycl-post-link
 -          opencl-aot
-+          # opencl-aot
  )
  
  add_custom_target( sycl-runtime-libraries
