@@ -26,7 +26,7 @@
   openclSupport ? true,
   # Broken
   cudaSupport ? false,
-  rocmSupport ? true,
+  rocmSupport ? false,
   rocmGpuTargets ? builtins.concatStringsSep ";" rocmPackages.clr.gpuTargets,
   vulkanSupport ? true,
   nativeCpuSupport ? true,
@@ -96,7 +96,16 @@
         ]
         ++ lib.optionals levelZeroSupport [
           level-zero
-          intel-compute-runtime
+          (intel-compute-runtime.overrideAttrs {
+            version = "25.27.34303.6";
+
+            src = fetchFromGitHub {
+              owner = "intel";
+              repo = "compute-runtime";
+              tag = version;
+              hash = "sha256-AgdPhEAg9N15lNfcX/zQLxBUDTzEEvph+y0FYbB6iCs=";
+            };
+          })
         ]
         ++ lib.optionals vulkanSupport [
           vulkan-headers
@@ -136,8 +145,8 @@
       postPatch = ''
         # The latter is used everywhere except this one file. For some reason,
         # the former is not set, at least when building with Nix, so we replace it.
-        substituteInPlace cmake/helpers.cmake \
-          --replace-fail "PYTHON_EXECUTABLE" "Python3_EXECUTABLE"
+        # substituteInPlace cmake/helpers.cmake \
+        #   --replace-fail "PYTHON_EXECUTABLE" "Python3_EXECUTABLE"
 
         # If we let it copy with default settings, it'll copy the permissions of the source files.
         # As the source files of level zero point to the nix store, those permissions will make it non-writable.
@@ -177,10 +186,10 @@
           (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_OCL-ICD" "${deps.opencl-icd-loader}")
         ]
         ++ lib.optionals cudaSupport [
-          (lib.cmakeFeature "CUDA_TOOLKIT_ROOT_DIR" "${cudaPackages.cudatoolkit}")
-          (lib.cmakeFeature "CUDAToolkit_ROOT" "${cudaPackages.cudatoolkit}")
-          (lib.cmakeFeature "CUDAToolkit_INCLUDE_DIRS" "${cudaPackages.cudatoolkit}/include/")
-          (lib.cmakeFeature "CUDA_cuda_driver_LIBRARY" "${cudaPackages.cudatoolkit}/lib/")
+          # (lib.cmakeFeature "CUDA_TOOLKIT_ROOT_DIR" "${cudaPackages.cudatoolkit}")
+          (lib.cmakeFeature "CUDAToolkit_ROOT" "${lib.getDev cudaPackages.cuda_nvcc}")
+          # (lib.cmakeFeature "CUDAToolkit_INCLUDE_DIRS" "${cudaPackages.cudatoolkit}/include/")
+          # (lib.cmakeFeature "CUDA_cuda_driver_LIBRARY" "${cudaPackages.cudatoolkit}/lib/")
         ]
         ++ lib.optionals rocmSupport [
           (lib.cmakeFeature "UR_HIP_ROCM_DIR" "${rocmtoolkit_joined}")

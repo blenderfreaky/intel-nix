@@ -30,6 +30,7 @@
   lit,
   # TODO: llvmPackages.libcxx? libcxxStdenv?
   libcxx,
+  symlinkJoin,
   rocmPackages ? {},
   level-zero,
   levelZeroSupport ? true,
@@ -67,20 +68,16 @@
       owner = "intel";
       repo = "llvm";
       # tag = "v${version}";
-      rev = "6927aef5bfe9b6d497cd9bc7d978655b682b6b91";
-      hash = "sha256-vj04YqJY/Bdt8YMLE/YY1XsbrCdIX9hrGSxwcBzS2ho=";
+      rev = "64928c5154d7a0d8b5f03e7771ce7411d14fea20";
+      hash = "sha256-WTxZre8cpOQjR2K8TX3ygZxn5Math0ofs+l499RsgsI=";
     };
 
     patches = [
+      # https://github.com/intel/llvm/pull/19845
       (fetchpatch {
         name = "make-sycl-version-reproducible";
         url = "https://github.com/intel/llvm/commit/1c22570828e24a628c399aae09ce15ad82b924c6.patch";
         hash = "sha256-leBTUmanYaeoNbmA0m9VFX/5ViACuXidWUhohewshQQ=";
-      })
-      (fetchpatch {
-        name = "fix-cmake-python";
-        url = "https://github.com/intel/llvm/pull/19637.patch";
-        hash = "sha256-0JcVK/puu62V0hq1vE6ETonPQm8hk8l3SOSm3IXNeqM=";
       })
     ];
   };
@@ -140,8 +137,12 @@
       # TODO
       "-DLLVM_ENABLE_ZLIB=FORCE_ON"
       "-DLLVM_ENABLE_THREADS=ON"
+
       # Breaks tablegen build somehow
       # "-DLLVM_ENABLE_LTO=Thin"
+      # "-DCMAKE_AR=${llvmPackages.bintools}/bin/ranlib"
+      # "-DCMAKE_STRIP=${llvmPackages.bintools}/bin/ranlib"
+      # "-DCMAKE_RANLIB=${llvmPackages.bintools}/bin/ranlib"
 
       (lib.cmakeBool "BUILD_SHARED_LIBS" false)
       # # TODO: configure fails when these are true, but I've no idea why
@@ -164,11 +165,6 @@
       (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_VC-INTRINSICS" "${deps.vc-intrinsics}")
 
       (lib.cmakeFeature "LLVM_EXTERNAL_SPIRV_HEADERS_SOURCE_DIR" "${spirv-headers.src}")
-
-      # These can be switched over to nixpkgs versions once they're updated
-      # See: https://github.com/NixOS/nixpkgs/pull/428558
-      (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_OCL-HEADERS" "${deps.opencl-headers}")
-      (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_OCL-ICD" "${deps.opencl-icd-loader}")
 
       (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_ONEAPI-CK" "${deps.oneapi-ck}")
     ];
@@ -201,7 +197,8 @@
         ];
     });
 
-    llvm-unpatched = llvmPkgs.llvm.overrideAttrs (
+    # Synthetic, not to be built directly
+    llvm-base = llvmPkgs.llvm.overrideAttrs (
       old: let
         src' = runCommand "llvm-src-${version}" {inherit (src) passthru;} ''
           mkdir -p "$out"
@@ -228,7 +225,7 @@
         nativeBuildInputs =
           old.nativeBuildInputs
           ++ lib.optionals useLld [
-            llvmPackages_21.bintools
+            llvmPackages.bintools
           ];
 
         buildInputs =
@@ -247,11 +244,11 @@
             # vc-intrinsics
 
             # For libspirv_dis
-            spirv-tools
+            # spirv-tools
 
-            overrides.xpti
-          ]
-          ++ unified-runtime'.buildInputs;
+            # overrides.xpti
+          ];
+        # ++ unified-runtime'.buildInputs;
 
         propagatedBuildInputs = [
           zstd
@@ -321,7 +318,7 @@
           #   "-DCMAKE_CXX_FLAGS_RELEASE=-flto=thin -ffat-lto-objects"
           # ]
           ++ lib.optional useLld (lib.cmakeFeature "LLVM_USE_LINKER" "lld")
-          ++ unified-runtime'.cmakeFlags
+          # ++ unified-runtime'.cmakeFlags
           # ++ ["-DUR_ENABLE_TRACING=OFF"]
           ;
 
@@ -407,6 +404,61 @@
       }
     );
 
+    llvm-no-spirv = overrides.llvm-base.overrideAttrs (oldAttrs: {
+      postPatch =
+        oldAttrs.postPatch
+        + ''
+          rm -rf tools/spirv-to-ir-wrapper
+        '';
+    });
+
+    llvm-with-intree-spirv = overrides.llvm-base.overrideAttrs (oldAttrs: {
+      cmakeFlags =
+        oldAttrs.cmakeFlags
+        ++ [
+          "-DLLVM_EXTERNAL_PROJECTS=llvm-spirv"
+          "-DLLVM_EXTERNAL_LLVM_SPIRV_SOURCE_DIR=/build/${oldAttrs.src.name}/llvm-spirv"
+
+          # These require clang, which we don't have at this point.
+          # TODO: Build these later, e.g. in passthru.tests
+          "-DLLVM_SPIRV_INCLUDE_TESTS=OFF"
+
+          "-DLLVM_SPIRV_ENABLE_LIBSPIRV_DIS=ON"
+        ];
+
+      buildInputs =
+        oldAttrs.buildInputs
+        ++ [
+          # For libspirv_dis
+          spirv-tools
+        ];
+    });
+
+    spirv-to-ir-wrapper = stdenv.mkDerivation (finalAttrs: {
+      pname = "spirv-to-ir-wrapper";
+      inherit version;
+
+      src = runCommand "spirv-to-ir-wrapper-src-${version}" {inherit (src) passthru;} ''
+        mkdir -p "$out"
+        cp -r ${src}/llvm/tools/spirv-to-ir-wrapper "$out"
+      '';
+
+      sourceRoot = "${finalAttrs.src.name}/spirv-to-ir-wrapper";
+
+      patches = [./spirv-to-ir-wrapper.patch];
+
+      nativeBuildInputs = [cmake ninja overrides.llvm-no-spirv.dev overrides.spriv-llvm-translator.dev];
+      buildInputs = [overrides.llvm-no-spirv overrides.spriv-llvm-translator];
+    });
+
+    # llvm = symlinkJoin {
+    #   name = "llvm";
+    #   paths = [overrides.spirv-to-ir-wrapper overrides.llvm-no-spirv];
+    # };
+    # llvm = overrides.llvm-no-spirv;
+    # llvm = overrides.llvm-base;
+    llvm = overrides.llvm-with-intree-spirv;
+
     opencl-aot = stdenv.mkDerivation (finalAttrs: {
       pname = "opencl-aot";
       inherit version;
@@ -473,17 +525,21 @@
           (lib.cmakeFeature "LLVM_EXTERNAL_LIT" "${lit}/bin/lit")
         ];
 
-        patches = [
-          ./libclc-use-default-paths.patch
-          ./libclc-remangler.patch
-          ./libclc-find-clang.patch
-          # ./libclc-utils.patch
-        ];
+        patches =
+          # # TODO: This is brittle
+          # [(builtins.head old.patches)]
+          # ++ [
+          [
+            ./libclc-use-default-paths.patch
+            ./libclc-remangler.patch
+            ./libclc-find-clang.patch
+            # ./libclc-utils.patch
+          ];
 
-        preInstall = ''
-          # TODO: Figure out why this is needed
-          cp utils/prepare_builtins prepare_builtins
-        '';
+        # preInstall = ''
+        #   # TODO: Figure out why this is needed
+        #   cp utils/prepare_builtins prepare_builtins
+        # '';
       });
 
     vc-intrinsics = vc-intrinsics.override {
@@ -491,30 +547,22 @@
     };
 
     # spirv-llvm-translator = stdenv.mkDerivation (finalAttrs: {
-    #   pname = "SPIRV-LLVM-Translator";
-    #   inherit version;
-    #   inherit src;
-    #   sourceRoot = "${finalAttrs.src.name}/llvm-spirv";
+    spirv-llvm-translator = (spirv-llvm-translator.override {llvm = overrides.llvm;}).overrideAttrs (oldAttrs: let
+      src' = runCommand "sycl-src-${version}" {inherit (src) passthru;} ''
+        mkdir -p "$out"
+        cp -r ${src}/llvm-spirv "$out"
+      '';
+    in {
+      # pname = "SPIRV-LLVM-Translator";
+      # inherit version;
+      src = src';
+      sourceRoot = "${src'.name}/llvm-spirv";
 
-    #   nativeBuildInputs = [
-    #     pkg-config
-    #     cmake
-    #     llvmPackages.llvm.dev
-    #   ];
-
-    #   buildInputs = [
-    #     spirv-headers
-    #     spirv-tools
-    #     llvmPackages.llvm
-    #   ];
-
-    #   nativeCheckInputs = [ lit ];
-
-    # });
-
-    spirv-llvm-translator = (spirv-llvm-translator.override {llvm = overrides.llvm;}).overrideAttrs (oldAttrs: {
-      inherit src;
-      sourceRoot = "${src.name}/llvm-spirv";
+      # nativeBuildInputs = [
+      #   pkg-config
+      #   cmake
+      #   llvmPackages.llvm.dev
+      # ];
     });
 
     sycl = stdenv.mkDerivation (finalAttrs: {
@@ -573,7 +621,8 @@
 
       cmakeFlags =
         [
-          "-DSYCL_UR_SOURCE_DIR=/build/${finalAttrs.src.name}/unified-runtime"
+          "-DLLVM_SOURCE_DIR=/build/${finalAttrs.src.name}/llvm"
+          # "-DUR_INTREE_SOURCE_DIR=/build/${finalAttrs.src.name}/unified-runtime"
           # "-DSYCL_INCLUDE_BUILD_DIR=/build/${finalAttrs.src.name}/build/include-build-dir"
 
           (lib.cmakeFeature "LLVM_EXTERNAL_LIT" "${lit}/bin/lit")
@@ -609,13 +658,8 @@
 
           (lib.cmakeBool "SYCL_UR_USE_FETCH_CONTENT" false)
 
-          # Lookup broken
+          # # Lookup broken
           (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_EMHASH" "${deps.emhash}")
-
-          # These can be switched over to nixpkgs versions once they're updated
-          # See: https://github.com/NixOS/nixpkgs/pull/428558
-          (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_OCL-HEADERS" "${deps.opencl-headers}")
-          (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_OCL-ICD" "${deps.opencl-icd-loader}")
         ]
         ++ unified-runtime'.cmakeFlags;
     });
@@ -810,84 +854,21 @@
       ];
 
       buildInputs = [
-        # parallel-hashmap
-        # emhash
+        parallel-hashmap
+        emhash
         overrides.xpti
       ];
 
       # TODO
       cmakeFlags = [
-        # Lookup broken
-        (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_EMHASH" "${deps.emhash}")
-        # Lookup not implemented
-        (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_PARALLEL-HASHMAP" "${parallel-hashmap.src}")
+        # # Lookup broken
+        # (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_EMHASH" "${deps.emhash}")
+        # # Lookup not implemented
+        # (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_PARALLEL-HASHMAP" "${parallel-hashmap.src}")
 
         (lib.cmakeBool "XPTI_ENABLE_WERROR" true)
       ];
     });
-
-    # # Wrapper to fix LLVM CMake exports
-    # llvm =
-    #   runCommand "llvm-patched-${overrides.llvm-unpatched.version}" {
-    #     outputs = ["out" "dev" "lib"];
-    #     inherit (overrides.llvm-unpatched) version;
-    #   } ''
-    #           # Copy the original LLVM outputs
-    #           cp -r ${overrides.llvm-unpatched} $out
-    #           cp -r ${overrides.llvm-unpatched.dev} $dev
-    #           cp -r ${overrides.llvm-unpatched.lib} $lib
-    #           chmod -R u+w $dev $out $lib
-
-    #           # Patch all text files (CMake, pkg-config) with store path references
-    #           find $dev -type f \( -name "*.cmake" -o -name "*.pc" \) -exec sed -i \
-    #             -e 's|${overrides.llvm-unpatched}|'$out'|g' \
-    #             -e 's|${overrides.llvm-unpatched.dev}|'$dev'|g' \
-    #             -e 's|${overrides.llvm-unpatched.lib}|'$lib'|g' \
-    #             -e 's|/nix/store/g6kx2793pvvcw812n084d5rhz8l0y1nl-zstd-1.5.7-bin/include|${zstd}/include|g' \
-    #             -e 's|/nix/store/wz37m8hfmpfg7zmmwjax5fvfsdzadf76-libedit-20250104-3.1/include|${libedit}/include|g' \
-    #             {} +
-
-    #           # Fix include paths that should point to dev output
-    #           find $dev -type f \( -name "*.cmake" -o -name "*.pc" \) -exec sed -i \
-    #             -e 's|'$out'/include|'$dev'/include|g' \
-    #             -e 's|''${_IMPORT_PREFIX}/include|'$dev'/include|g' \
-    #             {} +
-
-    #           # Patch binary files (like llvm-config) with store path references
-    #           find $dev/bin -type f -executable -exec sed -i \
-    #             -e 's|${overrides.llvm-unpatched}|'$out'|g' \
-    #             -e 's|${overrides.llvm-unpatched.dev}|'$dev'|g' \
-    #             -e 's|${overrides.llvm-unpatched.lib}|'$lib'|g' \
-    #             -e 's|'$out'/include|'$dev'/include|g' \
-    #             {} + 2>/dev/null || true
-
-    #           # Add missing dependency targets to LLVMConfig.cmake
-    #           cat >> $dev/lib/cmake/llvm/LLVMConfig.cmake << EOF
-
-    #     # Patched by Nix wrapper to fix missing dependencies
-    #     if(NOT TARGET zstd::libzstd_shared)
-    #       add_library(zstd::libzstd_shared SHARED IMPORTED)
-    #       set_target_properties(zstd::libzstd_shared PROPERTIES
-    #         IMPORTED_LOCATION "${zstd.out}/lib/libzstd.so"
-    #         INTERFACE_INCLUDE_DIRECTORIES "${zstd.dev}/include"
-    #       )
-    #     endif()
-
-    #     if(NOT TARGET LibEdit::LibEdit)
-    #       add_library(LibEdit::LibEdit SHARED IMPORTED)
-    #       set_target_properties(LibEdit::LibEdit PROPERTIES
-    #         IMPORTED_LOCATION "${libedit}/lib/libedit.so"
-    #         INTERFACE_INCLUDE_DIRECTORIES "${libedit.dev}/include"
-    #       )
-    #     endif()
-
-    #     # Add dummy DeviceConfigFile target for SYCL extensions
-    #     if(NOT TARGET DeviceConfigFile)
-    #       add_custom_target(DeviceConfigFile)
-    #     endif()
-    #     EOF
-    #   '';
-    llvm = overrides.llvm-unpatched;
   };
 in
   llvmPkgs // overrides

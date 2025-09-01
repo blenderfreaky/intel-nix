@@ -45,6 +45,28 @@
                   hash = "sha256-Z03gXioXxtUviAmOXmPLHB/QaW3DQUGyaSXiAQj5UE4=";
                 };
               };
+
+              level-zero = prev.level-zero.overrideAttrs rec {
+                version = "1.24.2";
+
+                src = pkgs.fetchFromGitHub {
+                  owner = "oneapi-src";
+                  repo = "level-zero";
+                  tag = "v${version}";
+                  hash = "sha256-5QkXWuMFNsYNsW8lgo9FQIZ5NuLiRZCFKGWedpddi8Y=";
+                };
+              };
+
+              # intel-compute-runtime = prev.intel-compute-runtime.overrideAttrs {
+              #   version = "25.31.34666.3";
+
+              #   src = pkgs.fetchFromGitHub {
+              #     owner = "intel";
+              #     repo = "level-zero";
+              #     rev = "v22.35.1";
+              #     hash = "sha256-tn7+vzwLZ3MALFYWsBtDZCW0aoap1k4lZob50jI8dz8=";
+              #   };
+              # };
             })
           ];
         };
