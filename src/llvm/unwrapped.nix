@@ -167,19 +167,19 @@ in
       substituteInPlace libdevice/cmake/modules/SYCLLibdevice.cmake \
         --replace-fail "\''${clang_exe}" "${ccWrapperStub}/bin/clang++"
 
-      # # When running without this, their CMake code copies files from the Nix store.
-      # # As the Nix store is read-only and COPY copies permissions by default,
-      # # this will lead to the copied files also being read-only.
-      # # As CMake at a later point wants to write into copied folders, this causes
-      # # the build to fail with a (rather cryptic) permission error.
-      # # By setting NO_SOURCE_PERMISSIONS we side-step this issue.
-      # # Note in case of future build failures: if there are executables in any of the copied folders,
-      # # we may need to add special handling to set the executable permissions.
-      # # See also: https://github.com/intel/llvm/issues/19635#issuecomment-3134830708
-      # sed -i '/file(COPY / { /NO_SOURCE_PERMISSIONS/! s/)\s*$/ NO_SOURCE_PERMISSIONS)/ }' \
-      #   unified-runtime/cmake/FetchLevelZero.cmake \
-      #   sycl/CMakeLists.txt \
-      #   sycl/cmake/modules/FetchEmhash.cmake
+      # When running without this, their CMake code copies files from the Nix store.
+      # As the Nix store is read-only and COPY copies permissions by default,
+      # this will lead to the copied files also being read-only.
+      # As CMake at a later point wants to write into copied folders, this causes
+      # the build to fail with a (rather cryptic) permission error.
+      # By setting NO_SOURCE_PERMISSIONS we side-step this issue.
+      # Note in case of future build failures: if there are executables in any of the copied folders,
+      # we may need to add special handling to set the executable permissions.
+      # See also: https://github.com/intel/llvm/issues/19635#issuecomment-3134830708
+      sed -i '/file(COPY / { /NO_SOURCE_PERMISSIONS/! s/)\s*$/ NO_SOURCE_PERMISSIONS)/ }' \
+        unified-runtime/cmake/FetchLevelZero.cmake \
+        sycl/CMakeLists.txt \
+        sycl/cmake/modules/FetchEmhash.cmake
 
       pushd unified-runtime
       chmod -R u+w .
