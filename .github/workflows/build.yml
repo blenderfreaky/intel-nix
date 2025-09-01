@@ -12,7 +12,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  llvm-core:
+  llvm:
     runs-on: ubuntu-latest
     steps:
       - name: git checkout
@@ -22,19 +22,33 @@ jobs:
           component: src.llvm.llvm
           display-name: "Intel Open Source DPC++ Compiler (Non-Monolithic, Core)"
 
-  llvm:
+  llvm-tools-stage1:
     runs-on: ubuntu-latest
-    needs: llvm-core
+    needs: llvm
     strategy:
       matrix:
-        component: [stdenv, clang, libclc]
+        component: [clang, xpti, xptifw, opencl-aot]
     steps:
       - name: git checkout
         uses: actions/checkout@v4
       - uses: ./.github/actions/nix-build
         with:
           component: src.llvm.${{ matrix.component }}
-          display-name: "Intel Open Source DPC++ Compiler (Non-Monolithic, Other)"
+          display-name: "Intel Open Source DPC++ Compiler (Non-Monolithic, ${matrix.component})"
+
+  llvm-tools-stage2:
+    runs-on: ubuntu-latest
+    needs: llvm-tools-stage1
+    strategy:
+      matrix:
+        component: [stdenv, libclc, sycl, sycl-jit]
+    steps:
+      - name: git checkout
+        uses: actions/checkout@v4
+      - uses: ./.github/actions/nix-build
+        with:
+          component: src.llvm.${{ matrix.component }}
+          display-name: "Intel Open Source DPC++ Compiler (Non-Monolithic, ${matrix.component})"
 
   llvm-mono:
     runs-on: ubuntu-latest
@@ -48,7 +62,7 @@ jobs:
 
   oneapi-src:
     runs-on: ubuntu-latest
-    needs: llvm
+    needs: llvm-tools-stage2
     strategy:
       matrix:
         component: [oneDNN, oneMath]
@@ -62,7 +76,7 @@ jobs:
 
   khronos-sycl-cts:
     runs-on: ubuntu-latest
-    needs: llvm
+    needs: llvm-tools-stage2
     steps:
       - name: git checkout
         uses: actions/checkout@v4
