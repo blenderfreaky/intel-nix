@@ -584,6 +584,7 @@
       patches = [
         ./sycl.patch
         ./sycl-build-ur.patch
+        ./sycl-incl.patch
         # ./unified-runtime.patch
         # ./unified-runtime-2.patch
       ];
