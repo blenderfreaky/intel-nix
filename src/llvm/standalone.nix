@@ -445,7 +445,7 @@
 
       sourceRoot = "${finalAttrs.src.name}/spirv-to-ir-wrapper";
 
-      patches = [./spirv-to-ir-wrapper.patch];
+      patches = [./patches/spirv-to-ir-wrapper.patch];
 
       nativeBuildInputs = [cmake ninja overrides.llvm-no-spirv.dev overrides.spriv-llvm-translator.dev];
       buildInputs = [overrides.llvm-no-spirv overrides.spriv-llvm-translator];
@@ -474,8 +474,8 @@
       # inherit src;
       #
       patches = [
-        ./opencl.patch
-        # ./opencl-aot.patch
+        ./patches/opencl.patch
+        # ./patches/opencl-aot.patch
       ];
 
       sourceRoot = "${finalAttrs.src.name}/opencl";
@@ -526,14 +526,13 @@
         ];
 
         patches =
-          # # TODO: This is brittle
-          # [(builtins.head old.patches)]
-          # ++ [
-          [
-            ./libclc-use-default-paths.patch
-            ./libclc-remangler.patch
-            ./libclc-find-clang.patch
-            # ./libclc-utils.patch
+          # old.patches
+          []
+          ++ [
+            ./patches/libclc-use-default-paths.patch
+            ./patches/libclc-remangler.patch
+            ./patches/libclc-find-clang.patch
+            # ./patches/libclc-utils.patch
           ];
 
         # preInstall = ''
@@ -582,11 +581,11 @@
       inherit src;
 
       patches = [
-        ./sycl.patch
-        ./sycl-build-ur.patch
-        # ./sycl-incl.patch
-        # ./unified-runtime.patch
-        # ./unified-runtime-2.patch
+        ./patches/sycl.patch
+        ./patches/sycl-build-ur.patch
+        # ./patches/sycl-incl.patch
+        # ./patches/unified-runtime.patch
+        # ./patches/unified-runtime-2.patch
       ];
       # prePatch = ''
       #   ls ../unified-runtime
@@ -702,8 +701,8 @@
       ];
 
       patches = [
-        ./libdevice.patch
-        ./libdevice-sycllibdevice.patch
+        ./patches/libdevice.patch
+        ./patches/libdevice-sycllibdevice.patch
       ];
 
       cmakeFlags = [

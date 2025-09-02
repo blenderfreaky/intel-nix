@@ -178,8 +178,8 @@ in
 
       pushd unified-runtime
       chmod -R u+w .
-      patch -p1 < ${./unified-runtime.patch}
-      patch -p1 < ${./unified-runtime-2.patch}
+      patch -p1 < ${./patches/unified-runtime.patch}
+      patch -p1 < ${./patches/unified-runtime-2.patch}
       popd
     '';
 
