@@ -41,7 +41,7 @@ jobs:
     needs: llvm-tools-stage1
     strategy:
       matrix:
-        component: [stdenv, libclc, sycl, sycl-jit]
+        component: [stdenv, libclc, sycl]
     steps:
       - name: git checkout
         uses: actions/checkout@v4
