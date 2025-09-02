@@ -57,7 +57,7 @@ jobs:
         uses: actions/checkout@v4
       - uses: ./.github/actions/nix-build
         with:
-          component: src.llvm-prev
+          component: src.llvm-monolithic
           display-name: "Intel Open Source DPC++ Compiler (Monolithic)"
 
   oneapi-src:
