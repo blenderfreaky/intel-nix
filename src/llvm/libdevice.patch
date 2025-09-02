@@ -1,5 +1,5 @@
 diff --git a/CMakeLists.txt b/CMakeLists.txt
-index c3388fee6cc8..c3ab178f6d4d 100644
+index c3388fee6cc8..e807073e5be0 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
 @@ -1,11 +1,16 @@
@@ -19,3 +19,17 @@ index c3388fee6cc8..c3ab178f6d4d 100644
  set(UR_INTREE_SOURCE_DIR "${LLVM_SOURCE_DIR}/../unified-runtime")
  cmake_path(NORMAL_PATH UR_INTREE_SOURCE_DIR OUTPUT_VARIABLE UR_INTREE_SOURCE_DIR)
  
+@@ -46,9 +51,10 @@ endif()
+ # Build libdevice for SYCL.
+ include(SYCLLibdevice)
+ 
++include(GNUInstallDirs)
++
+ set(LIBDEVICE_BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR})
+-set(LIBDEVICE_LIBRARY_DIR ${CMAKE_LIBRARY_OUTPUT_DIRECTORY})
+-set(LIBDEVICE_RUNTIME_DIR ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
++set(LIBDEVICE_LIBRARY_DIR ${CMAKE_INSTALL_LIBDIR})
++set(LIBDEVICE_RUNTIME_DIR ${CMAKE_INSTALL_BINDIR})
+ set(LIBDEVICE_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
+ 
+-add_subdirectory(test)

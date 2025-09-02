@@ -701,9 +701,14 @@
         llvmPkgs.clang-tools
       ];
 
-      patches = [./libdevice.patch];
+      patches = [
+        ./libdevice.patch
+        ./libdevice-sycllibdevice.patch
+      ];
 
       cmakeFlags = [
+        "-DLLVM_TOOLS_DIR=${overrides.llvm}/bin"
+        "-DCLANG_TOOLS_DIR=${llvmPkgs.clang-tools}/bin"
       ];
     });
 
