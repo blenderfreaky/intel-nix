@@ -526,8 +526,7 @@
         ];
 
         patches =
-          # old.patches
-          []
+          [(builtins.head old.patches)]
           ++ [
             ./patches/libclc-use-default-paths.patch
             ./patches/libclc-remangler.patch
