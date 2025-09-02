@@ -534,10 +534,10 @@
             # ./patches/libclc-utils.patch
           ];
 
-        # preInstall = ''
-        #   # TODO: Figure out why this is needed
-        #   cp utils/prepare_builtins prepare_builtins
-        # '';
+        preInstall = ''
+          # TODO: Figure out why this is needed
+          cp utils/prepare_builtins prepare_builtins
+        '';
       });
 
     vc-intrinsics = vc-intrinsics.override {
@@ -601,8 +601,8 @@
 
         pushd ../unified-runtime
         chmod -R u+w .
-        patch -p1 < ${./unified-runtime.patch}
-        patch -p1 < ${./unified-runtime-2.patch}
+        patch -p1 < ${./patches/unified-runtime.patch}
+        patch -p1 < ${./patches/unified-runtime-2.patch}
         popd
       '';
 
@@ -694,9 +694,10 @@
       nativeBuildInputs = [cmake ninja];
 
       buildInputs = [
-        overrides.llvm
-        llvmPkgs.clang
-        llvmPkgs.clang-tools
+        # overrides.llvm
+        # llvmPkgs.clang
+        # llvmPkgs.clang-tools
+        overrides.sycl
       ];
 
       patches = [
@@ -704,9 +705,20 @@
         ./patches/libdevice-sycllibdevice.patch
       ];
 
-      cmakeFlags = [
+      cmakeFlags = let
+        tools = symlinkJoin {
+          name = "libdevice-tools";
+          paths = [
+            overrides.llvm
+            llvmPkgs.clang
+            llvmPkgs.clang-tools
+          ];
+        };
+      in [
         "-DLLVM_TOOLS_DIR=${overrides.llvm}/bin"
         "-DCLANG_TOOLS_DIR=${llvmPkgs.clang-tools}/bin"
+        # Despite being in libdevice, this flag is called LIBCLC_
+        "-DLIBCLC_CUSTOM_LLVM_TOOLS_BINARY_DIR=${tools}/bin"
       ];
     });
 
