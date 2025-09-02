@@ -92,8 +92,8 @@ in
       owner = "intel";
       repo = "llvm";
       # tag = "v${version}";
-      rev = "6927aef5bfe9b6d497cd9bc7d978655b682b6b91";
-      hash = "sha256-vj04YqJY/Bdt8YMLE/YY1XsbrCdIX9hrGSxwcBzS2ho=";
+      rev = "64928c5154d7a0d8b5f03e7771ce7411d14fea20";
+      hash = "sha256-WTxZre8cpOQjR2K8TX3ygZxn5Math0ofs+l499RsgsI=";
     };
 
     # I'd like to split outputs, but currently this fails
@@ -148,11 +148,6 @@ in
         name = "make-sycl-version-reproducible";
         url = "https://github.com/intel/llvm/commit/1c22570828e24a628c399aae09ce15ad82b924c6.patch";
         hash = "sha256-leBTUmanYaeoNbmA0m9VFX/5ViACuXidWUhohewshQQ=";
-      })
-      (fetchpatch {
-        name = "fix-cmake-python";
-        url = "https://github.com/intel/llvm/pull/19637.patch";
-        hash = "sha256-0JcVK/puu62V0hq1vE6ETonPQm8hk8l3SOSm3IXNeqM=";
       })
     ];
 
