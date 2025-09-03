@@ -6,7 +6,7 @@
   unified-runtime,
   emhash,
 }: let
-  llvm-unwrapped = callPackage ./unwrapped.nix {inherit unified-runtime emhash;};
+  llvm-unwrapped = callPackage ./monolithic-unwrapped.nix {inherit unified-runtime emhash;};
   llvm-wrapper = wrapCC llvm-unwrapped;
   llvm = symlinkJoin {
     inherit (llvm-unwrapped) pname version meta;
