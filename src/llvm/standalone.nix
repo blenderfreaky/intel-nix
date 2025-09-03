@@ -794,44 +794,44 @@
     # #   else overrides.libcxxClang;
     # bintools = llvmPkgs.bintools;
 
-    mkExtraBuildCommands0 = cc:
-      ''
-        rsrc="$out/resource-root"
-        mkdir "$rsrc"
-        echo "-resource-dir=$rsrc" >> $out/nix-support/cc-cflags
-      ''
-      # clang standard c headers are incompatible with FreeBSD so we have to put them in -idirafter instead of -resource-dir
-      # see https://github.com/freebsd/freebsd-src/commit/f382bac49b1378da3c2dd66bf721beaa16b5d471
-      + (
-        if stdenv.targetPlatform.isFreeBSD
-        then ''
-          echo "-idirafter ${lib.getLib cc}/lib/clang/${lib.versions.major overrides.llvm.version}/include" >> $out/nix-support/cc-cflags
-        ''
-        else ''
-          ln -s "${lib.getLib cc}/lib/clang/${lib.versions.major overrides.llvm.version}/include" "$rsrc"
-        ''
-      );
+    # mkExtraBuildCommands0 = cc:
+    #   ''
+    #     rsrc="$out/resource-root"
+    #     mkdir "$rsrc"
+    #     echo "-resource-dir=$rsrc" >> $out/nix-support/cc-cflags
+    #   ''
+    #   # clang standard c headers are incompatible with FreeBSD so we have to put them in -idirafter instead of -resource-dir
+    #   # see https://github.com/freebsd/freebsd-src/commit/f382bac49b1378da3c2dd66bf721beaa16b5d471
+    #   + (
+    #     if stdenv.targetPlatform.isFreeBSD
+    #     then ''
+    #       echo "-idirafter ${lib.getLib cc}/lib/clang/${lib.versions.major overrides.llvm.version}/include" >> $out/nix-support/cc-cflags
+    #     ''
+    #     else ''
+    #       ln -s "${lib.getLib cc}/lib/clang/${lib.versions.major overrides.llvm.version}/include" "$rsrc"
+    #     ''
+    #   );
 
-    mkExtraBuildCommands = cc:
-      overrides.mkExtraBuildCommands0 cc
-      + ''
-        ln -s "${llvmPkgs.compiler-rt.out}/lib" "$rsrc/lib"
-        ln -s "${llvmPkgs.compiler-rt.out}/share" "$rsrc/share"
-      '';
+    # mkExtraBuildCommands = cc:
+    #   overrides.mkExtraBuildCommands0 cc
+    #   + ''
+    #     ln -s "${llvmPkgs.compiler-rt.out}/lib" "$rsrc/lib"
+    #     ln -s "${llvmPkgs.compiler-rt.out}/share" "$rsrc/share"
+    #   '';
 
-    clangNoLibcNoRt = wrapCCWith rec {
-      cc = overrides.clang-unwrapped;
-      libcxx = null;
-      bintools = llvmPkgs.bintoolsNoLibc;
-      extraPackages = [];
-      # "-nostartfiles" used to be needed for pkgsLLVM, causes problems so don't include it.
-      extraBuildCommands = overrides.mkExtraBuildCommands0 cc;
+    # clangNoLibcNoRt = wrapCCWith rec {
+    #   cc = overrides.clang-unwrapped;
+    #   libcxx = null;
+    #   bintools = llvmPkgs.bintoolsNoLibc;
+    #   extraPackages = [];
+    #   # "-nostartfiles" used to be needed for pkgsLLVM, causes problems so don't include it.
+    #   extraBuildCommands = overrides.mkExtraBuildCommands0 cc;
 
-      # "-nostartfiles" used to be needed for pkgsLLVM, causes problems so don't include it.
-      nixSupport.cc-cflags = lib.optional (
-        stdenv.targetPlatform.isWasm
-      ) "-fno-exceptions";
-    };
+    #   # "-nostartfiles" used to be needed for pkgsLLVM, causes problems so don't include it.
+    #   nixSupport.cc-cflags = lib.optional (
+    #     stdenv.targetPlatform.isWasm
+    #   ) "-fno-exceptions";
+    # };
 
     # clang = overrideCC
 
