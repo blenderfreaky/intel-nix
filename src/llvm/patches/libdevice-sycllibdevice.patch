@@ -1,5 +1,5 @@
 diff --git a/cmake/modules/SYCLLibdevice.cmake b/cmake/modules/SYCLLibdevice.cmake
-index cd9afa88506b..847fa2423f2c 100644
+index cd9afa88506b..942ad3802137 100644
 --- a/cmake/modules/SYCLLibdevice.cmake
 +++ b/cmake/modules/SYCLLibdevice.cmake
 @@ -1,24 +1,25 @@
@@ -33,3 +33,21 @@ index cd9afa88506b..847fa2423f2c 100644
  set(install_dest_obj lib${LLVM_LIBDIR_SUFFIX})
  set(install_dest_obj-new-offload lib${LLVM_LIBDIR_SUFFIX})
  set(install_dest_bc lib${LLVM_LIBDIR_SUFFIX})
+@@ -338,7 +339,7 @@ endfunction()
+ # For native builds, sycl-compiler will already include everything we need.
+ # For cross builds, we also need native versions of the tools.
+ set(sycl-compiler_deps
+-  sycl-compiler ${clang_target} ${append-file_target}
++  ${clang_target} ${append-file_target}
+   ${clang-offload-bundler_target} ${clang-offload-packager_target}
+   ${file-table-tform_target} ${llvm-foreach_target} ${llvm-spirv_target}
+   ${sycl-post-link_target})
+@@ -347,7 +348,7 @@ set(complex_obj_deps device_complex.h device.h ${sycl-compiler_deps})
+ set(cmath_obj_deps device_math.h device.h ${sycl-compiler_deps})
+ set(imf_obj_deps device_imf.hpp imf_half.hpp imf_bf16.hpp imf_rounding_op.hpp imf_impl_utils.hpp device.h ${sycl-compiler_deps})
+ set(itt_obj_deps device_itt.h spirv_vars.h device.h ${sycl-compiler_deps})
+-set(bfloat16_obj_deps sycl-headers ${sycl-compiler_deps})
++set(bfloat16_obj_deps ${sycl-compiler_deps})
+ if (NOT MSVC AND UR_SANITIZER_INCLUDE_DIR)
+   set(asan_obj_deps
+     device.h atomic.hpp spirv_vars.h

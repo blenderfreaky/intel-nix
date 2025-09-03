@@ -694,7 +694,7 @@
       nativeBuildInputs = [cmake ninja];
 
       buildInputs = [
-        # overrides.llvm
+        overrides.llvm
         # llvmPkgs.clang
         # llvmPkgs.clang-tools
         overrides.sycl
@@ -705,6 +705,8 @@
         ./patches/libdevice-sycllibdevice.patch
       ];
 
+      hardeningDisable = ["zerocallusedregs"];
+
       cmakeFlags = let
         tools = symlinkJoin {
           name = "libdevice-tools";
@@ -713,10 +715,17 @@
             llvmPkgs.clang
             llvmPkgs.clang-tools
           ];
+          # I think it wants unwrapped clang and wrapped clang++
+          # but I'm not sure yet. TODO
+          postInstall = ''
+            rm $out/bin/clang
+            ln -s ${overrides.clang-unwrapped}/bin/clang $out/bin/clang
+          '';
         };
       in [
         "-DLLVM_TOOLS_DIR=${overrides.llvm}/bin"
         "-DCLANG_TOOLS_DIR=${llvmPkgs.clang-tools}/bin"
+        # (lib.cmakeFeature "CMAKE_C_COMPILER" "${stdenv.cc}/bin/clang")
         # Despite being in libdevice, this flag is called LIBCLC_
         "-DLIBCLC_CUSTOM_LLVM_TOOLS_BINARY_DIR=${tools}/bin"
       ];
