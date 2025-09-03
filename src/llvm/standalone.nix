@@ -762,10 +762,48 @@
           # overrides.llvm.dev
         ];
 
-      # postPatch =
-      #   (old.postPatch or "")
-      #   + ''
-      #   '';
+      postPatch =
+        (old.postPatch or "")
+        + ''
+          # The findProgram calls in this file are often split across multiple lines.
+          # Use sed to join them into a single line so that substituteInPlace can match them.
+          # This handles cases where the line break is after '=' or after '('.
+          sed -i \
+            -e '/Expected<std::string>.*=$/{N;s/\n\s*//}' \
+            -e '/findProgram($/{N;s/\n\s*//}' \
+            tools/clang-linker-wrapper/ClangLinkerWrapper.cpp
+
+          # We want to use a shell-expansion here, as the name contains a version number (e.g., ocloc-25.31.1).
+          OCLOC="${intel-compute-runtime}/bin/ocloc-*"
+          # TODO: clang-offload-bundler will not be wrapper properly
+
+          substituteInPlace tools/clang-linker-wrapper/ClangLinkerWrapper.cpp \
+            --replace-fail 'findProgram("llvm-objcopy", {getMainExecutable("llvm-objcopy")})' '"${overrides.llvm}/bin/llvm-objcopy"' \
+            --replace-fail 'findProgram("clang-offload-bundler", {getMainExecutable("clang-offload-bundler")})' '"$out/bin/clang-offload-bundler"' \
+            --replace-fail 'findProgram("spirv-to-ir-wrapper", {getMainExecutable("spirv-to-ir-wrapper")})' '"${overrides.llvm}/bin/spirv-to-ir-wrapper"' \
+            --replace-fail 'findProgram("sycl-post-link", {getMainExecutable("sycl-post-link")})' '"${overrides.llvm}/bin/sycl-post-link"' \
+            --replace-fail 'findProgram("llvm-spirv", {getMainExecutable("llvm-spirv")})' '"${overrides.llvm}/bin/llvm-spirv"' \
+            --replace-fail 'findProgram("opencl-aot", {getMainExecutable("opencl-aot")})' '"${overrides.opencl-aot}/bin/opencl-aot"' \
+            --replace-fail 'findProgram("ocloc", {getMainExecutable("ocloc")})' '"$OCLOC"' \
+            --replace-fail 'findProgram("clang", {getMainExecutable("clang")})' '"${llvmPkgs.clang}/bin/clang"' \
+            --replace-fail 'findProgram("llvm-link", {getMainExecutable("llvm-link")})' '"${overrides.llvm}/bin/llvm-link"'
+
+          # Apply the same pattern to the second file, which has a slightly different
+          # function signature for findProgram.
+          sed -i \
+            -e '/Expected<std::string>.*=$/{N;s/\n\s*//}' \
+            tools/clang-sycl-linker/ClangSYCLLinker.cpp
+
+          substituteInPlace tools/clang-sycl-linker/ClangSYCLLinker.cpp \
+            --replace-fail 'findProgram(Args, "opencl-aot", {getMainExecutable("opencl-aot")})' '"${overrides.opencl-aot}/bin/opencl-aot"' \
+            --replace-fail 'findProgram(Args, "ocloc", {getMainExecutable("ocloc")})' '"$OCLOC"'
+
+          # # After replacing the calls that use it, the getMainExecutable function
+          # # in this file is no longer needed. Remove it to prevent compiler warnings
+          # # or errors about unused functions.
+          # sed -i '/^std::string getMainExecutable(const char \*Name) {/,/}/d' \
+          #   clang/tools/clang-sycl-linker/ClangSYCLLinker.cpp
+        '';
 
       # cmakeFlags =
       #   (old.cmakeFlags or [])
@@ -776,6 +814,10 @@
       #     (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_VC-INTRINSICS" "${deps.vc-intrinsics}")
       #   ];
     });
+
+    # clang-tools = llvmPkgs.clang-tools.overrideAttrs (old: {
+
+    # });
 
     libcxx = llvmPkgs.libcxx.overrideAttrs (old: {
       # inherit stdenv;
