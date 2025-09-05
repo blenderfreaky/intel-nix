@@ -47,4 +47,16 @@ mkDerivation {
       "-DDPCPP_FLAGS=-Xsycl-target-backend;--offload-arch=gfx1030;--rocm-path=${rocmPackages.clr};--rocm-device-lib-path=${rocmPackages.rocm-device-libs}/amdgcn/bitcode"
     )
   '';
+
+  installPhase = ''
+    runHook preInstall
+
+    ls
+    pwd
+    ls *
+    mkdir -p $out/bin
+    cp -r bin/* $out/bin
+
+    runHook postInstall
+  '';
 }
