@@ -22,6 +22,7 @@
       // {
         inherit stdenv;
         unwrapped = llvm-unwrapped;
+        openmp = llvm-unwrapped.baseLlvm.openmp;
       };
   };
   stdenv = overrideCC llvm-unwrapped.baseLlvm.stdenv llvm;

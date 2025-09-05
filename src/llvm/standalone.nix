@@ -37,7 +37,7 @@
   openclSupport ? true,
   # Broken
   cudaSupport ? false,
-  rocmSupport ? false,
+  rocmSupport ? true,
   rocmGpuTargets ? builtins.concatStringsSep ";" rocmPackages.clr.gpuTargets,
   nativeCpuSupport ? false,
   vulkanSupport ? true,
@@ -523,6 +523,8 @@
           # and configure will fail to compile a basic test program with it.
           (lib.cmakeFeature "CMAKE_C_COMPILER" "${stdenv.cc}/bin/clang")
           (lib.cmakeFeature "LLVM_EXTERNAL_LIT" "${lit}/bin/lit")
+
+          # (lib.cmakeBool "LIBCLC_GENERATE_REMANGLED_VARIANTS" false)
         ];
 
         patches =
@@ -626,6 +628,8 @@
 
           emhash
         ]
+        ++ (lib.optional (rocmSupport || cudaSupport) overrides.libclc)
+        ++ (lib.optional rocmSupport llvmPkgs.lld)
         ++ unified-runtime'.buildInputs;
 
       # preBuild = ''
@@ -715,12 +719,12 @@
             llvmPkgs.clang
             llvmPkgs.clang-tools
           ];
-          # I think it wants unwrapped clang and wrapped clang++
-          # but I'm not sure yet. TODO
-          postInstall = ''
-            rm $out/bin/clang
-            ln -s ${overrides.clang-unwrapped}/bin/clang $out/bin/clang
-          '';
+          # # I think it wants unwrapped clang and wrapped clang++
+          # # but I'm not sure yet. TODO
+          # postInstall = ''
+          #   rm $out/bin/clang
+          #   ln -s ${overrides.clang-unwrapped}/bin/clang $out/bin/clang
+          # '';
         };
       in [
         "-DLLVM_TOOLS_DIR=${overrides.llvm}/bin"
