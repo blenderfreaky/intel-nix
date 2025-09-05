@@ -2,20 +2,12 @@ diff --git a/utils/CMakeLists.txt b/utils/CMakeLists.txt
 index 8d8fe15ac682..7f683789a74a 100644
 --- a/utils/CMakeLists.txt
 +++ b/utils/CMakeLists.txt
-@@ -10,14 +10,8 @@ set( LLVM_LINK_COMPONENTS
-   Support
+@@ -11,7 +11,7 @@ set( LLVM_LINK_COMPONENTS
  )
  
--if( LIBCLC_STANDALONE_BUILD )
+ if( LIBCLC_STANDALONE_BUILD )
 -  add_llvm_executable( prepare_builtins prepare-builtins.cpp )
--  set( prepare_builtins_exe prepare_builtins PARENT_SCOPE )
--  set( prepare_builtins_target prepare_builtins PARENT_SCOPE )
--else()
--  add_llvm_utility( prepare_builtins prepare-builtins.cpp )
--  setup_host_tool( prepare_builtins PREPARE_BUILTINS prepare_builtins_exe prepare_builtins_target )
--endif()
-+add_llvm_executable( prepare_builtins prepare-builtins.cpp )
-+setup_host_tool( prepare_builtins PREPARE_BUILTINS prepare_builtins_exe prepare_builtins_target )
- 
- target_compile_definitions( prepare_builtins PRIVATE ${LLVM_VERSION_DEFINE} )
- # These were not properly reported in early LLVM and we don't need them
++  add_llvm_utility( prepare_builtins prepare-builtins.cpp )
+   set( prepare_builtins_exe prepare_builtins PARENT_SCOPE )
+   set( prepare_builtins_target prepare_builtins PARENT_SCOPE )
+ else()
