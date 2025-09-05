@@ -1,5 +1,5 @@
 diff --git a/CMakeLists.txt b/CMakeLists.txt
-index f722f35ad1be..d910c1a46045 100644
+index f722f35ad1be..7bf521037f12 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
 @@ -39,6 +39,11 @@ if (NOT XPTI_PROXY_SRC)
@@ -35,7 +35,7 @@ index f722f35ad1be..d910c1a46045 100644
  
  if(NOT OpenCL_FOUND)
    # Copy OpenCL Headers into sycl headers build directory
-@@ -372,7 +377,6 @@ add_custom_target(sycl-compiler
+@@ -372,7 +378,6 @@ add_custom_target(sycl-compiler
            llvm-objcopy
            spirv-to-ir-wrapper
            sycl-post-link
@@ -43,3 +43,58 @@ index f722f35ad1be..d910c1a46045 100644
  )
  
  add_custom_target( sycl-runtime-libraries
+@@ -504,34 +509,38 @@ if("libclc" IN_LIST LLVM_ENABLE_PROJECTS)
+ endif()
+ 
+ if("cuda" IN_LIST SYCL_ENABLE_BACKENDS)
+-  # Ensure that libclc is enabled.
+-  list(FIND LLVM_ENABLE_PROJECTS libclc LIBCLC_FOUND)
+-  if( LIBCLC_FOUND EQUAL -1 )
+-    message(FATAL_ERROR
+-      "CUDA support requires adding \"libclc\" to the CMake argument \"LLVM_ENABLE_PROJECTS\"")
+-  endif()
++  set(_require_libclc)
+ 
+   add_dependencies(sycl-toolchain ur_adapter_cuda)
+   list(APPEND SYCL_TOOLCHAIN_DEPLOY_COMPONENTS ur_adapter_cuda)
+ endif()
+ 
+ if("hip" IN_LIST SYCL_ENABLE_BACKENDS)
+-  # Ensure that libclc is enabled.
+-  list(FIND LLVM_ENABLE_PROJECTS libclc LIBCLC_FOUND)
+-  if( LIBCLC_FOUND EQUAL -1 )
+-    message(FATAL_ERROR
+-      "HIP support requires adding \"libclc\" to the CMake argument \"LLVM_ENABLE_PROJECTS\"")
+-  endif()
++  set(_require_libclc)
+ 
+-  if(NOT TARGET lld AND "${SYCL_BUILD_PI_HIP_PLATFORM}" STREQUAL "AMD")
+-    message(FATAL_ERROR
+-      "HIP support requires adding \"lld\" to the CMake argument \"LLVM_ENABLE_PROJECTS\"")
+-  endif()
++  find_package(LLD REQUIRED)
+ 
+   add_dependencies(sycl-toolchain ur_adapter_hip)
+   list(APPEND SYCL_TOOLCHAIN_DEPLOY_COMPONENTS ur_adapter_hip)
+ endif()
+ 
++if(NOT DEFINED prepare_builtins_exe AND DEFINED _require_libclc)
++  if(SYCL_PREPARE_BUILTINS_EXE)
++    set(prepare_builtins_exe "${SYCL_PREPARE_BUILTINS_EXE}")
++    set(prepare_builtins_target "")
++  else()
++    find_program(PREPARE_BUILTINS_EXE NAMES prepare-builtins)
++    if(PREPARE_BUILTINS_EXE)
++      set(prepare_builtins_exe "${PREPARE_BUILTINS_EXE}")
++      set(prepare_builtins_target "")
++    else()
++      message(FATAL_ERROR
++        "prepare-builtins is required but not found. "
++        "Install libclc with prepare-builtins, or set -DSYCL_PREPARE_BUILTINS_EXE=<path>")
++    endif()
++  endif()
++endif()
++
+ # Use it as fake dependency in order to force another command(s) to execute.
+ add_custom_command(OUTPUT __force_it
+   COMMAND "${CMAKE_COMMAND}" -E echo
