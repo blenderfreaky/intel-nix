@@ -17,7 +17,6 @@
   sphinx,
   doxygen,
   level-zero,
-  libcxx,
   libxml2,
   libedit,
   llvmPackages_21,
@@ -40,18 +39,19 @@
   rocmGpuTargets ? builtins.concatStringsSep ";" rocmPackages.clr.gpuTargets,
   nativeCpuSupport ? false,
   vulkanSupport ? true,
-  useLibcxx ? false,
-  useLld ? false,
+  useLibcxx ? true,
+  useLld ? true,
   buildTests ? false,
   buildDocs ? false,
   buildMan ? false,
 }: let
-  version = "unstable-2025-08-21";
-  date = "20250821";
+  version = "unstable-2025-09-04";
+  date = "20250904";
+  llvmPackages = llvmPackages_21;
   stdenv =
     if useLibcxx
-    then llvmPackages_21.libcxxStdenv
-    else llvmPackages_21.stdenv;
+    then llvmPackages.libcxxStdenv
+    else llvmPackages.stdenv;
   deps = callPackage ./deps.nix {};
   unified-runtime' = unified-runtime.override {
     inherit
@@ -92,8 +92,8 @@ in
       owner = "intel";
       repo = "llvm";
       # tag = "v${version}";
-      rev = "64928c5154d7a0d8b5f03e7771ce7411d14fea20";
-      hash = "sha256-WTxZre8cpOQjR2K8TX3ygZxn5Math0ofs+l499RsgsI=";
+      rev = "0433e4d6f5c97f5870d4ffabcb3a7779ef9cf596";
+      hash = "sha256-2wVVEpiWGd+/cCgv4qwY3h169BH6GOhNz+U2BQ3W11A=";
     };
 
     # I'd like to split outputs, but currently this fails
@@ -113,7 +113,7 @@ in
         zlib
       ]
       ++ lib.optionals useLld [
-        llvmPackages_21.bintools
+        llvmPackages.bintools
       ];
 
     buildInputs =
@@ -125,11 +125,12 @@ in
         valgrind.dev
         hwloc
         emhash
+        parallel-hashmap
       ]
-      ++ lib.optionals useLibcxx [
-        libcxx
-        libcxx.dev
-      ]
+      # ++ lib.optionals useLibcxx [
+      #   llvmPackages.libcxx
+      #   llvmPackages.libcxx.dev
+      # ]
       ++ unified-runtime'.buildInputs;
 
     propagatedBuildInputs = [
@@ -152,35 +153,40 @@ in
     ];
 
     postPatch = ''
-      # Parts of libdevice are built using the freshly-built compiler.
-      # As it tries to link to system libraries, we need to wrap it with the
-      # usual nix cc-wrapper.
-      # Since the compiler to be wrapped is not available at this point,
-      # we use a stub that points to where it will be later on
-      # in `/build/source/build/bin/clang-21`
-      # Note: both nix and bash try to expand clang_exe here, so double-escape it
-      substituteInPlace libdevice/cmake/modules/SYCLLibdevice.cmake \
-        --replace-fail "\''${clang_exe}" "${ccWrapperStub}/bin/clang++"
+        # Parts of libdevice are built using the freshly-built compiler.
+        # As it tries to link to system libraries, we need to wrap it with the
+        # usual nix cc-wrapper.
+        # Since the compiler to be wrapped is not available at this point,
+        # we use a stub that points to where it will be later on
+        # in `/build/source/build/bin/clang-21`
+        # Note: both nix and bash try to expand clang_exe here, so double-escape it
+        substituteInPlace libdevice/cmake/modules/SYCLLibdevice.cmake \
+          --replace-fail "\''${clang_exe}" "${ccWrapperStub}/bin/clang++"
 
-      # When running without this, their CMake code copies files from the Nix store.
-      # As the Nix store is read-only and COPY copies permissions by default,
-      # this will lead to the copied files also being read-only.
-      # As CMake at a later point wants to write into copied folders, this causes
-      # the build to fail with a (rather cryptic) permission error.
-      # By setting NO_SOURCE_PERMISSIONS we side-step this issue.
-      # Note in case of future build failures: if there are executables in any of the copied folders,
-      # we may need to add special handling to set the executable permissions.
-      # See also: https://github.com/intel/llvm/issues/19635#issuecomment-3134830708
-      sed -i '/file(COPY / { /NO_SOURCE_PERMISSIONS/! s/)\s*$/ NO_SOURCE_PERMISSIONS)/ }' \
-        unified-runtime/cmake/FetchLevelZero.cmake \
-        sycl/CMakeLists.txt \
-        sycl/cmake/modules/FetchEmhash.cmake
+        # When running without this, their CMake code copies files from the Nix store.
+        # As the Nix store is read-only and COPY copies permissions by default,
+        # this will lead to the copied files also being read-only.
+        # As CMake at a later point wants to write into copied folders, this causes
+        # the build to fail with a (rather cryptic) permission error.
+        # By setting NO_SOURCE_PERMISSIONS we side-step this issue.
+        # Note in case of future build failures: if there are executables in any of the copied folders,
+        # we may need to add special handling to set the executable permissions.
+        # See also: https://github.com/intel/llvm/issues/19635#issuecomment-3134830708
+        sed -i '/file(COPY / { /NO_SOURCE_PERMISSIONS/! s/)\s*$/ NO_SOURCE_PERMISSIONS)/ }' \
+          unified-runtime/cmake/FetchLevelZero.cmake \
+          sycl/CMakeLists.txt \
+          sycl/cmake/modules/FetchEmhash.cmake
 
-      pushd unified-runtime
-      chmod -R u+w .
-      patch -p1 < ${./patches/unified-runtime.patch}
-      patch -p1 < ${./patches/unified-runtime-2.patch}
-      popd
+      # `NO_CMAKE_PACKAGE_REGISTRY` prevents it from finding OpenCL, so we unset it
+      # Note that this cmake file is imported in various places, not just unified-runtime
+      substituteInPlace unified-runtime/cmake/FetchOpenCL.cmake \
+          --replace-fail "NO_CMAKE_PACKAGE_REGISTRY" ""
+
+        pushd unified-runtime
+        chmod -R u+w .
+        patch -p1 < ${./patches/unified-runtime.patch}
+        patch -p1 < ${./patches/unified-runtime-2.patch}
+        popd
     '';
 
     preConfigure = ''
@@ -193,8 +199,6 @@ in
           ${lib.optionalString rocmSupport "--hip"} \
           ${lib.optionalString nativeCpuSupport "--native_cpu"} \
           ${lib.optionalString useLibcxx "--use-libcxx"} \
-          ${lib.optionalString useLibcxx "--libcxx-include ${lib.getInclude libcxx}/include"} \
-          ${lib.optionalString useLibcxx "--libcxx-library ${lib.getLib libcxx}/lib"} \
           ${lib.optionalString useLld "--use-lld"} \
           ${lib.optionalString levelZeroSupport "--level_zero_adapter_version V1"} \
           ${lib.optionalString levelZeroSupport "--l0-headers ${lib.getInclude level-zero}/include/level_zero"} \
@@ -257,12 +261,12 @@ in
         (lib.cmakeBool "LLVM_LINK_LLVM_DYLIB" false)
         (lib.cmakeBool "LLVM_BUILD_LLVM_DYLIB" false)
 
-        (lib.cmakeBool "LLVM_ENABLE_LIBCXX" useLibcxx)
-        (lib.cmakeFeature "CLANG_DEFAULT_CXX_STDLIB" (
-          if useLibcxx
-          then "libc++"
-          else "libstdc++"
-        ))
+        # (lib.cmakeBool "LLVM_ENABLE_LIBCXX" useLibcxx)
+        # (lib.cmakeFeature "CLANG_DEFAULT_CXX_STDLIB" (
+        #   if useLibcxx
+        #   then "libc++"
+        #   else "libstdc++"
+        # ))
 
         (lib.cmakeFeature "SYCL_COMPILER_VERSION" date)
 
@@ -273,19 +277,16 @@ in
 
         (lib.cmakeFeature "LLVM_EXTERNAL_SPIRV_HEADERS_SOURCE_DIR" "${spirv-headers.src}")
 
-        # These can be switched over to nixpkgs versions once they're updated
-        # See: https://github.com/NixOS/nixpkgs/pull/428558
-        (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_OCL-HEADERS" "${deps.opencl-headers}")
-        (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_OCL-ICD" "${deps.opencl-icd-loader}")
+        # # These can be switched over to nixpkgs versions once they're updated
+        # # See: https://github.com/NixOS/nixpkgs/pull/428558
+        # (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_OCL-HEADERS" "${deps.opencl-headers}")
+        # (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_OCL-ICD" "${deps.opencl-icd-loader}")
 
+        # It needs the actual code of oneAPI-construction-kit here, and we cannot link
+        # against it instead of vendoring it
         (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_ONEAPI-CK" "${deps.oneapi-ck}")
-
-        # Lookup broken
-        (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_EMHASH" "${deps.emhash}")
-        # Lookup not implemented
-        (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_PARALLEL-HASHMAP" "${parallel-hashmap.src}")
       ]
-      ++ lib.optional useLld (lib.cmakeFeature "LLVM_USE_LINKER" "lld")
+      # ++ lib.optional useLld (lib.cmakeFeature "LLVM_USE_LINKER" "lld")
       ++ unified-runtime'.cmakeFlags;
 
     # This hardening option causes compilation errors when compiling for amdgcn, spirv and others

@@ -24,6 +24,9 @@
   wrapCCWith,
   overrideCC,
   intel-compute-runtime,
+  intel-graphics-compiler,
+  opencl-headers,
+  ocl-icd,
   spirv-llvm-translator,
   pkg-config,
   emptyDirectory,
@@ -48,8 +51,8 @@
   buildDocs ? false,
   buildMan ? false,
 }: let
-  version = "unstable-2025-08-21";
-  date = "20250821";
+  version = "unstable-2025-09-04";
+  date = "20250904";
   deps = callPackage ./deps.nix {};
   unified-runtime' = unified-runtime.override {
     inherit
@@ -64,12 +67,20 @@
       ;
   };
   srcOrig = applyPatches {
+    # src = fetchFromGitHub {
+    #   owner = "intel";
+    #   repo = "llvm";
+    #   # tag = "v${version}";
+    #   rev = "64928c5154d7a0d8b5f03e7771ce7411d14fea20";
+    #   hash = "sha256-WTxZre8cpOQjR2K8TX3ygZxn5Math0ofs+l499RsgsI=";
+    # };
+
     src = fetchFromGitHub {
       owner = "intel";
       repo = "llvm";
       # tag = "v${version}";
-      rev = "64928c5154d7a0d8b5f03e7771ce7411d14fea20";
-      hash = "sha256-WTxZre8cpOQjR2K8TX3ygZxn5Math0ofs+l499RsgsI=";
+      rev = "0433e4d6f5c97f5870d4ffabcb3a7779ef9cf596";
+      hash = "sha256-2wVVEpiWGd+/cCgv4qwY3h169BH6GOhNz+U2BQ3W11A=";
     };
 
     patches = [
@@ -85,8 +96,10 @@
     cp -r ${srcOrig} $out
     chmod -R u+w $out
 
-    substituteInPlace $out/clang/lib/Driver/CMakeLists.txt \
-      --replace-fail "DeviceConfigFile" ""
+    # `NO_CMAKE_PACKAGE_REGISTRY` prevents it from finding OpenCL, so we unset it
+    # Note that this cmake file is imported in various places, not just unified-runtime
+    substituteInPlace $out/unified-runtime/cmake/FetchOpenCL.cmake \
+      --replace-fail "NO_CMAKE_PACKAGE_REGISTRY" ""
   '';
   llvmPackages = llvmPackages_21;
   # TODO
@@ -488,7 +501,7 @@
       # ];
 
       nativeBuildInputs = [cmake ninja];
-      buildInputs = [overrides.llvm libffi zstd zlib libxml2];
+      buildInputs = [overrides.llvm libffi zstd zlib libxml2 opencl-headers ocl-icd];
 
       # nativeBuildInputs = [cmake ninja] ++ unified-runtime'.nativeBuildInputs;
 
@@ -498,8 +511,8 @@
         # "-DLLVM_TARGETS_TO_BUILD=${targetsToBuild'}"
         # "-DCMAKE_MODULE_PATH=${finalAttrs.src}/cmake"
         "-DLLVM_BUILD_TOOLS=ON"
-        (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_OCL-HEADERS" "${deps.opencl-headers}")
-        (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_OCL-ICD" "${deps.opencl-icd-loader}")
+        # (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_OCL-HEADERS" "${deps.opencl-headers}")
+        # (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_OCL-ICD" "${deps.opencl-icd-loader}")
       ];
     });
 
@@ -596,14 +609,6 @@
       #   cat ../unified-runtime/source/adapters/level_zero/common.cpp
       # '';
       postPatch = ''
-        # # substituteInPlace ../sycl/CMakeLists.txt \
-        # substituteInPlace CMakeLists.txt \
-        #   --replace-fail 'message(FATAL_ERROR "opencl external project required but not found.")' 'find_package(OpenCL REQUIRED)'
-
-        # `NO_CMAKE_PACKAGE_REGISTRY` prevents it from finding OpenCL, so we unset it
-        substituteInPlace ../unified-runtime/cmake/FetchOpenCL.cmake \
-          --replace-fail "NO_CMAKE_PACKAGE_REGISTRY" ""
-
         pushd ../unified-runtime
         chmod -R u+w .
         patch -p1 < ${./patches/unified-runtime.patch}
@@ -691,7 +696,27 @@
         ++ unified-runtime'.cmakeFlags;
     });
 
-    libdevice = stdenv.mkDerivation (finalAttrs: {
+    libdevice = stdenv.mkDerivation (finalAttrs: let
+      tools = symlinkJoin {
+        name = "libdevice-tools";
+        paths = [
+          overrides.llvm
+          llvmPkgs.clang
+          llvmPkgs.clang-tools
+        ];
+        # # I think it wants unwrapped clang and wrapped clang++
+        # # but I'm not sure yet. TODO
+        postBuild =
+          ''
+            rm $out/bin/clang
+            # ln -s ${overrides.clang-unwrapped}/bin/clang $out/bin/clang
+            ln -s $out/bin/clang++ $out/bin/clang
+          ''
+          + (lib.optionalString (rocmSupport || cudaSupport) ''
+            ln -s ${overrides.libclc}/bin/prepare_builtins $out/bin/prepare_builtins
+          '');
+      };
+    in {
       pname = "libdevice";
       inherit version;
 
@@ -705,6 +730,7 @@
         # llvmPkgs.clang
         # llvmPkgs.clang-tools
         overrides.sycl
+        tools
       ];
 
       patches = [
@@ -714,27 +740,11 @@
 
       hardeningDisable = ["zerocallusedregs"];
 
-      cmakeFlags = let
-        tools = symlinkJoin {
-          name = "libdevice-tools";
-          paths = [
-            overrides.llvm
-            llvmPkgs.clang
-            llvmPkgs.clang-tools
-          ];
-          # # I think it wants unwrapped clang and wrapped clang++
-          # # but I'm not sure yet. TODO
-          postBuild =
-            ''
-              rm $out/bin/clang
-              # ln -s ${overrides.clang-unwrapped}/bin/clang $out/bin/clang
-              ln -s $out/bin/clang++ $out/bin/clang
-            ''
-            + (lib.optionalString (rocmSupport || cudaSupport) ''
-              ln -s ${overrides.libclc}/bin/prepare_builtins $out/bin/prepare_builtins
-            '');
-        };
-      in [
+      NIX_CFLAGS_COMPILE = "-v";
+
+      ninjaFlags = ["-v"];
+
+      cmakeFlags = [
         "-DLLVM_TOOLS_DIR=${overrides.llvm}/bin"
         "-DCLANG_TOOLS_DIR=${llvmPkgs.clang-tools}/bin"
         # (lib.cmakeFeature "CMAKE_C_COMPILER" "${stdenv.cc}/bin/clang")
@@ -775,22 +785,37 @@
           # overrides.llvm.dev
         ];
 
-      postPatch =
-        (old.postPatch or "")
-        + ''
-          # The findProgram calls in this file are often split across multiple lines.
-          # Use sed to join them into a single line so that substituteInPlace can match them.
-          # This handles cases where the line break is after '=' or after '('.
-          sed -i \
+      prePatch = ''
+        echo hiiii
+      '';
+      patchPhase = ''
+        echo hiii
+        exit 1
+      '';
+      postPatch = ''
+        ${old.postPatch or ""}
+
+        echo AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+
+        exit 1
+
+        substituteInPlace lib/Driver/CMakeLists.txt \
+            --replace-fail "DeviceConfigFile" ""
+            echo BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
+
+        # The findProgram calls in this file are often split across multiple lines.
+        # Use sed to join them into a single line so that substituteInPlace can match them.
+        # This handles cases where the line break is after '=' or after '('.
+        sed -i \
             -e '/Expected<std::string>.*=$/{N;s/\n\s*//}' \
             -e '/findProgram($/{N;s/\n\s*//}' \
             tools/clang-linker-wrapper/ClangLinkerWrapper.cpp
 
-          # We want to use a shell-expansion here, as the name contains a version number (e.g., ocloc-25.31.1).
-          OCLOC="${intel-compute-runtime}/bin/ocloc-*"
-          # TODO: clang-offload-bundler will not be wrapper properly
+        # We want to use a shell-expansion here, as the name contains a version number (e.g., ocloc-25.31.1).
+        OCLOC="${intel-compute-runtime}/bin/ocloc-*"
+        # TODO: clang-offload-bundler will not be wrapper properly
 
-          substituteInPlace tools/clang-linker-wrapper/ClangLinkerWrapper.cpp \
+        substituteInPlace tools/clang-linker-wrapper/ClangLinkerWrapper.cpp \
             --replace-fail 'findProgram("llvm-objcopy", {getMainExecutable("llvm-objcopy")})' '"${overrides.llvm}/bin/llvm-objcopy"' \
             --replace-fail 'findProgram("clang-offload-bundler", {getMainExecutable("clang-offload-bundler")})' '"$out/bin/clang-offload-bundler"' \
             --replace-fail 'findProgram("spirv-to-ir-wrapper", {getMainExecutable("spirv-to-ir-wrapper")})' '"${overrides.llvm}/bin/spirv-to-ir-wrapper"' \
@@ -801,22 +826,22 @@
             --replace-fail 'findProgram("clang", {getMainExecutable("clang")})' '"${llvmPkgs.clang}/bin/clang"' \
             --replace-fail 'findProgram("llvm-link", {getMainExecutable("llvm-link")})' '"${overrides.llvm}/bin/llvm-link"'
 
-          # Apply the same pattern to the second file, which has a slightly different
-          # function signature for findProgram.
-          sed -i \
+        # Apply the same pattern to the second file, which has a slightly different
+        # function signature for findProgram.
+        sed -i \
             -e '/Expected<std::string>.*=$/{N;s/\n\s*//}' \
             tools/clang-sycl-linker/ClangSYCLLinker.cpp
 
-          substituteInPlace tools/clang-sycl-linker/ClangSYCLLinker.cpp \
+        substituteInPlace tools/clang-sycl-linker/ClangSYCLLinker.cpp \
             --replace-fail 'findProgram(Args, "opencl-aot", {getMainExecutable("opencl-aot")})' '"${overrides.opencl-aot}/bin/opencl-aot"' \
             --replace-fail 'findProgram(Args, "ocloc", {getMainExecutable("ocloc")})' '"$OCLOC"'
 
-          # # After replacing the calls that use it, the getMainExecutable function
-          # # in this file is no longer needed. Remove it to prevent compiler warnings
-          # # or errors about unused functions.
-          # sed -i '/^std::string getMainExecutable(const char \*Name) {/,/}/d' \
-          #   clang/tools/clang-sycl-linker/ClangSYCLLinker.cpp
-        '';
+        # # After replacing the calls that use it, the getMainExecutable function
+        # # in this file is no longer needed. Remove it to prevent compiler warnings
+        # # or errors about unused functions.
+        # sed -i '/^std::string getMainExecutable(const char \*Name) {/,/}/d' \
+        #   clang/tools/clang-sycl-linker/ClangSYCLLinker.cpp
+      '';
 
       # cmakeFlags =
       #   (old.cmakeFlags or [])

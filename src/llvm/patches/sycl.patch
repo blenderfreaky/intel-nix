@@ -1,5 +1,5 @@
 diff --git a/CMakeLists.txt b/CMakeLists.txt
-index f722f35ad1be..7bf521037f12 100644
+index 25d437f46f20..400633df95e5 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
 @@ -39,6 +39,11 @@ if (NOT XPTI_PROXY_SRC)
@@ -43,7 +43,7 @@ index f722f35ad1be..7bf521037f12 100644
  )
  
  add_custom_target( sycl-runtime-libraries
-@@ -504,34 +509,38 @@ if("libclc" IN_LIST LLVM_ENABLE_PROJECTS)
+@@ -504,43 +509,45 @@ if("libclc" IN_LIST LLVM_ENABLE_PROJECTS)
  endif()
  
  if("cuda" IN_LIST SYCL_ENABLE_BACKENDS)
@@ -76,6 +76,17 @@ index f722f35ad1be..7bf521037f12 100644
  
    add_dependencies(sycl-toolchain ur_adapter_hip)
    list(APPEND SYCL_TOOLCHAIN_DEPLOY_COMPONENTS ur_adapter_hip)
+ endif()
+ 
+ if("offload" IN_LIST SYCL_ENABLE_BACKENDS)
+-  if(NOT TARGET lld)
+-    message(FATAL_ERROR
+-      "Offload support requires adding \"lld\" to the CMake argument \"LLVM_ENABLE_PROJECTS\"")
+-  endif()
++  find_package(LLD REQUIRED)
++
+   add_dependencies(sycl-toolchain ur_adapter_offload)
+   list(APPEND SYCL_TOOLCHAIN_DEPLOY_COMPONENTS ur_adapter_offload)
  endif()
  
 +if(NOT DEFINED prepare_builtins_exe AND DEFINED _require_libclc)
