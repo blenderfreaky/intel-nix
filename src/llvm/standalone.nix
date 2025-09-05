@@ -524,6 +524,9 @@
           (lib.cmakeFeature "CMAKE_C_COMPILER" "${stdenv.cc}/bin/clang")
           (lib.cmakeFeature "LLVM_EXTERNAL_LIT" "${lit}/bin/lit")
 
+          "-DLLVM_BUILD_UTILS=ON"
+          "-DLLVM_INSTALL_UTILS=ON"
+
           # (lib.cmakeBool "LIBCLC_GENERATE_REMANGLED_VARIANTS" false)
         ];
 
@@ -533,7 +536,7 @@
             ./patches/libclc-use-default-paths.patch
             ./patches/libclc-remangler.patch
             ./patches/libclc-find-clang.patch
-            # ./patches/libclc-utils.patch
+            ./patches/libclc-utils.patch
           ];
 
         preInstall = ''
@@ -721,10 +724,15 @@
           ];
           # # I think it wants unwrapped clang and wrapped clang++
           # # but I'm not sure yet. TODO
-          # postInstall = ''
-          #   rm $out/bin/clang
-          #   ln -s ${overrides.clang-unwrapped}/bin/clang $out/bin/clang
-          # '';
+          postBuild =
+            ''
+              rm $out/bin/clang
+              # ln -s ${overrides.clang-unwrapped}/bin/clang $out/bin/clang
+              ln -s $out/bin/clang++ $out/bin/clang
+            ''
+            + (lib.optionalString (rocmSupport || cudaSupport) ''
+              ln -s ${overrides.libclc}/bin/prepare_builtins $out/bin/prepare_builtins
+            '');
         };
       in [
         "-DLLVM_TOOLS_DIR=${overrides.llvm}/bin"
@@ -732,6 +740,7 @@
         # (lib.cmakeFeature "CMAKE_C_COMPILER" "${stdenv.cc}/bin/clang")
         # Despite being in libdevice, this flag is called LIBCLC_
         "-DLIBCLC_CUSTOM_LLVM_TOOLS_BINARY_DIR=${tools}/bin"
+        "-DLLVM_TARGETS_TO_BUILD=${targetsToBuild}"
       ];
     });
 

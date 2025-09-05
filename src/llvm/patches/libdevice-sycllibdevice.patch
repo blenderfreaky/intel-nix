@@ -33,7 +33,24 @@ index cd9afa88506b..942ad3802137 100644
  set(install_dest_obj lib${LLVM_LIBDIR_SUFFIX})
  set(install_dest_obj-new-offload lib${LLVM_LIBDIR_SUFFIX})
  set(install_dest_bc lib${LLVM_LIBDIR_SUFFIX})
-@@ -338,7 +339,7 @@ endfunction()
+@@ -215,6 +216,7 @@ function(link_bc)
+     set( link_flags --internalize --only-needed )
+   endif()
+ 
++  message(WARNING "abc ${ARG_TARGET} def llvm ${llvm-link_exe}")
+   add_custom_command(
+     OUTPUT ${ARG_TARGET}.bc
+     COMMAND ${llvm-link_exe} ${link_flags} -o ${ARG_TARGET}.bc ${LINK_INPUT_ARG}
+@@ -258,6 +260,8 @@ function(process_bc out_file)
+ 
+   set( builtins_opt_lib $<TARGET_PROPERTY:${ARG_LIB_TGT},TARGET_FILE> )
+ 
++  message(WARNING "abc ${out_file} def prep ${prepare_builtins_exe}")
++
+   # Add prepare target
+   # FIXME: prepare_builtins_exe comes from having included libclc before this.
+   # This is brittle.
+@@ -338,7 +342,7 @@ endfunction()
  # For native builds, sycl-compiler will already include everything we need.
  # For cross builds, we also need native versions of the tools.
  set(sycl-compiler_deps
@@ -42,7 +59,7 @@ index cd9afa88506b..942ad3802137 100644
    ${clang-offload-bundler_target} ${clang-offload-packager_target}
    ${file-table-tform_target} ${llvm-foreach_target} ${llvm-spirv_target}
    ${sycl-post-link_target})
-@@ -347,7 +348,7 @@ set(complex_obj_deps device_complex.h device.h ${sycl-compiler_deps})
+@@ -347,7 +351,7 @@ set(complex_obj_deps device_complex.h device.h ${sycl-compiler_deps})
  set(cmath_obj_deps device_math.h device.h ${sycl-compiler_deps})
  set(imf_obj_deps device_imf.hpp imf_half.hpp imf_bf16.hpp imf_rounding_op.hpp imf_impl_utils.hpp device.h ${sycl-compiler_deps})
  set(itt_obj_deps device_itt.h spirv_vars.h device.h ${sycl-compiler_deps})
