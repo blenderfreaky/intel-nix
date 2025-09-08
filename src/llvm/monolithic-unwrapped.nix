@@ -39,14 +39,14 @@
   rocmGpuTargets ? builtins.concatStringsSep ";" rocmPackages.clr.gpuTargets,
   nativeCpuSupport ? false,
   vulkanSupport ? true,
-  useLibcxx ? true,
+  useLibcxx ? false,
   useLld ? true,
-  buildTests ? false,
+  buildTests ? true,
   buildDocs ? false,
   buildMan ? false,
 }: let
-  version = "unstable-2025-09-04";
-  date = "20250904";
+  version = "unstable-2025-09-05";
+  date = "20250905";
   llvmPackages = llvmPackages_21;
   stdenv =
     if useLibcxx
@@ -92,16 +92,17 @@ in
       owner = "intel";
       repo = "llvm";
       # tag = "v${version}";
-      rev = "0433e4d6f5c97f5870d4ffabcb3a7779ef9cf596";
-      hash = "sha256-2wVVEpiWGd+/cCgv4qwY3h169BH6GOhNz+U2BQ3W11A=";
+      rev = "25fbd1f710d9f5b1426b447e45ba8a7b07ab739b";
+      hash = "sha256-VlcqSncrk/dp5WHg5rAMWXpnV7BBJGwld42Ew/IZ6ME=";
     };
 
-    # I'd like to split outputs, but currently this fails
+    # # I'd like to split outputs, but currently this fails
     # outputs = [
     #   "out"
     #   "lib"
     #   "dev"
     #   "rsrc"
+    #   "libexec"
     # ];
 
     nativeBuildInputs =
@@ -181,12 +182,6 @@ in
       # Note that this cmake file is imported in various places, not just unified-runtime
       substituteInPlace unified-runtime/cmake/FetchOpenCL.cmake \
           --replace-fail "NO_CMAKE_PACKAGE_REGISTRY" ""
-
-        pushd unified-runtime
-        chmod -R u+w .
-        patch -p1 < ${./patches/unified-runtime.patch}
-        patch -p1 < ${./patches/unified-runtime-2.patch}
-        popd
     '';
 
     preConfigure = ''
@@ -203,6 +198,7 @@ in
           ${lib.optionalString levelZeroSupport "--level_zero_adapter_version V1"} \
           ${lib.optionalString levelZeroSupport "--l0-headers ${lib.getInclude level-zero}/include/level_zero"} \
           ${lib.optionalString levelZeroSupport "--l0-loader ${lib.getLib level-zero}/lib/libze_loader.so"} \
+          --disable-jit # Currently broken afaict
           # --enable-all-llvm-targets
           # --shared-libs # Bad and should not be used
       )

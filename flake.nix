@@ -2,10 +2,10 @@
   description = "WIP Packaging of Intel LLVM, OneAPI and related tools for Nix";
 
   inputs = {
-    # nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    # nixpkgs.url = "github:blenderfreaky/nixpkgs/other/intel-cherry-picks";
     # nixpkgs.url = "github:NixOS/nixpkgs/staging";
     # nixpkgs-spirv.url = "github:NixOS/nixpkgs/pull/432015/head";
-    nixpkgs.url = "github:blenderfreaky/nixpkgs/other/intel-cherry-picks";
     flake-utils.url = "github:numtide/flake-utils";
   };
 

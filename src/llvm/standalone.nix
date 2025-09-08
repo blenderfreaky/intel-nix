@@ -79,8 +79,8 @@
       owner = "intel";
       repo = "llvm";
       # tag = "v${version}";
-      rev = "0433e4d6f5c97f5870d4ffabcb3a7779ef9cf596";
-      hash = "sha256-2wVVEpiWGd+/cCgv4qwY3h169BH6GOhNz+U2BQ3W11A=";
+      rev = "25fbd1f710d9f5b1426b447e45ba8a7b07ab739b";
+      hash = "sha256-VlcqSncrk/dp5WHg5rAMWXpnV7BBJGwld42Ew/IZ6ME=";
     };
 
     patches = [
@@ -121,7 +121,8 @@
     if useLibcxx
     then llvmPackages.libcxxStdenv
     else llvmPackages.stdenv;
-  llvmPkgs = llvmPackages.override (old: {
+in
+  (llvmPackages.override (_: {
     inherit stdenv;
     #inherit src;
 
@@ -181,25 +182,8 @@
 
       (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_ONEAPI-CK" "${deps.oneapi-ck}")
     ];
-
-    # TODO: This may break cross-compilation?
-    buildLlvmTools =
-      llvmPkgs
-      // overrides
-      // {
-        libllvm = overrides.llvm;
-        libclang = overrides.clang-unwrapped;
-        libcxx = overrides.libcxx;
-      };
-    # // {
-    #   tblgen = overrides.tblgen;
-    # };
-    libllvm = overrides.llvm;
-    libclang = overrides.clang-unwrapped;
-    libcxx = overrides.libcxx;
-  });
-  overrides = {
-    tblgen = llvmPkgs.tblgen.overrideAttrs (old: {
+  })).overrideScope (llvmFinal: llvmPrev: {
+    tblgen = llvmPrev.tblgen.overrideAttrs (old: {
       # TODO: This is sketchy
       # buildInputs = (old.buildInputs or []) ++ [vc-intrinsics];
       buildInputs =
@@ -211,7 +195,7 @@
     });
 
     # Synthetic, not to be built directly
-    llvm-base = llvmPkgs.llvm.overrideAttrs (
+    llvm-base = (llvmPrev.libllvm.override {tblgen = llvmFinal.tblgen;}).overrideAttrs (
       old: let
         src' = runCommand "llvm-src-${version}" {inherit (src) passthru;} ''
           mkdir -p "$out"
@@ -417,7 +401,7 @@
       }
     );
 
-    llvm-no-spirv = overrides.llvm-base.overrideAttrs (oldAttrs: {
+    llvm-no-spirv = llvmFinal.llvm-base.overrideAttrs (oldAttrs: {
       postPatch =
         oldAttrs.postPatch
         + ''
@@ -425,7 +409,7 @@
         '';
     });
 
-    llvm-with-intree-spirv = overrides.llvm-base.overrideAttrs (oldAttrs: {
+    llvm-with-intree-spirv = llvmFinal.llvm-base.overrideAttrs (oldAttrs: {
       cmakeFlags =
         oldAttrs.cmakeFlags
         ++ [
@@ -460,8 +444,8 @@
 
       patches = [./patches/spirv-to-ir-wrapper.patch];
 
-      nativeBuildInputs = [cmake ninja overrides.llvm-no-spirv.dev overrides.spriv-llvm-translator.dev];
-      buildInputs = [overrides.llvm-no-spirv overrides.spriv-llvm-translator];
+      nativeBuildInputs = [cmake ninja llvmFinal.llvm-no-spirv.dev llvmFinal.spriv-llvm-translator.dev];
+      buildInputs = [llvmFinal.llvm-no-spirv llvmFinal.spriv-llvm-translator];
     });
 
     # llvm = symlinkJoin {
@@ -470,7 +454,7 @@
     # };
     # llvm = overrides.llvm-no-spirv;
     # llvm = overrides.llvm-base;
-    llvm = overrides.llvm-with-intree-spirv;
+    libllvm = llvmFinal.llvm-with-intree-spirv;
 
     opencl-aot = stdenv.mkDerivation (finalAttrs: {
       pname = "opencl-aot";
@@ -501,7 +485,7 @@
       # ];
 
       nativeBuildInputs = [cmake ninja];
-      buildInputs = [overrides.llvm libffi zstd zlib libxml2 opencl-headers ocl-icd];
+      buildInputs = [llvmFinal.llvm libffi zstd zlib libxml2 opencl-headers ocl-icd];
 
       # nativeBuildInputs = [cmake ninja] ++ unified-runtime'.nativeBuildInputs;
 
@@ -516,54 +500,51 @@
       ];
     });
 
-    libclc =
-      (llvmPkgs.libclc.override {
-        llvm = overrides.llvm;
-      }).overrideAttrs (old: {
-        nativeBuildInputs = builtins.filter (x: lib.getName x != "SPIRV-LLVM-Translator") old.nativeBuildInputs;
+    libclc = llvmPrev.libclc.overrideAttrs (old: {
+      nativeBuildInputs = builtins.filter (x: lib.getName x != "SPIRV-LLVM-Translator") old.nativeBuildInputs;
 
-        buildInputs =
-          old.buildInputs
-          ++ [
-            zstd
-            zlib
-            # Required by libclc-remangler
-            llvmPkgs.clang.cc.dev
-          ];
-
-        cmakeFlags = [
-          # Otherwise it'll misdetect the unwrapped just-built compiler as the compiler to use,
-          # and configure will fail to compile a basic test program with it.
-          (lib.cmakeFeature "CMAKE_C_COMPILER" "${stdenv.cc}/bin/clang")
-          (lib.cmakeFeature "LLVM_EXTERNAL_LIT" "${lit}/bin/lit")
-
-          "-DLLVM_BUILD_UTILS=ON"
-          "-DLLVM_INSTALL_UTILS=ON"
-
-          # (lib.cmakeBool "LIBCLC_GENERATE_REMANGLED_VARIANTS" false)
+      buildInputs =
+        old.buildInputs
+        ++ [
+          zstd
+          zlib
+          # Required by libclc-remangler
+          llvmFinal.clang.cc.dev
         ];
 
-        patches =
-          [(builtins.head old.patches)]
-          ++ [
-            ./patches/libclc-use-default-paths.patch
-            ./patches/libclc-remangler.patch
-            ./patches/libclc-find-clang.patch
-            ./patches/libclc-utils.patch
-          ];
+      cmakeFlags = [
+        # Otherwise it'll misdetect the unwrapped just-built compiler as the compiler to use,
+        # and configure will fail to compile a basic test program with it.
+        (lib.cmakeFeature "CMAKE_C_COMPILER" "${stdenv.cc}/bin/clang")
+        (lib.cmakeFeature "LLVM_EXTERNAL_LIT" "${lit}/bin/lit")
 
-        preInstall = ''
-          # TODO: Figure out why this is needed
-          cp utils/prepare_builtins prepare_builtins
-        '';
-      });
+        "-DLLVM_BUILD_UTILS=ON"
+        "-DLLVM_INSTALL_UTILS=ON"
+
+        # (lib.cmakeBool "LIBCLC_GENERATE_REMANGLED_VARIANTS" false)
+      ];
+
+      patches =
+        [(builtins.head old.patches)]
+        ++ [
+          ./patches/libclc-use-default-paths.patch
+          ./patches/libclc-remangler.patch
+          ./patches/libclc-find-clang.patch
+          ./patches/libclc-utils.patch
+        ];
+
+      preInstall = ''
+        # TODO: Figure out why this is needed
+        cp utils/prepare_builtins prepare_builtins
+      '';
+    });
 
     vc-intrinsics = vc-intrinsics.override {
       # llvmPackages_21 = llvmPkgs // overrides;
     };
 
     # spirv-llvm-translator = stdenv.mkDerivation (finalAttrs: {
-    spirv-llvm-translator = (spirv-llvm-translator.override {llvm = overrides.llvm;}).overrideAttrs (oldAttrs: let
+    spirv-llvm-translator = spirv-llvm-translator.overrideAttrs (oldAttrs: let
       src' = runCommand "sycl-src-${version}" {inherit (src) passthru;} ''
         mkdir -p "$out"
         cp -r ${src}/llvm-spirv "$out"
@@ -623,21 +604,21 @@
 
       buildInputs =
         [
-          overrides.xpti
-          overrides.xptifw
+          llvmFinal.xpti
+          llvmFinal.xptifw
           # Might need to be propagated
-          overrides.opencl-aot
-          overrides.llvm
-          llvmPkgs.clang
-          llvmPkgs.clang.cc.dev
+          llvmFinal.opencl-aot
+          llvmFinal.llvm
+          llvmFinal.clang
+          llvmFinal.clang.cc.dev
           # overrides.vc-intrinsics
           (zstd.override {enableStatic = true;})
           zlib
 
           emhash
         ]
-        ++ (lib.optional (rocmSupport || cudaSupport) overrides.libclc)
-        ++ (lib.optional rocmSupport llvmPkgs.lld)
+        ++ (lib.optional (rocmSupport || cudaSupport) llvmFinal.libclc)
+        ++ (lib.optional rocmSupport llvmFinal.lld)
         ++ unified-runtime'.buildInputs;
 
       # preBuild = ''
@@ -700,20 +681,20 @@
       tools = symlinkJoin {
         name = "libdevice-tools";
         paths = [
-          overrides.llvm
-          llvmPkgs.clang
-          llvmPkgs.clang-tools
+          llvmFinal.llvm
+          llvmFinal.clang
+          llvmFinal.clang-tools
         ];
         # # I think it wants unwrapped clang and wrapped clang++
         # # but I'm not sure yet. TODO
         postBuild =
           ''
             rm $out/bin/clang
-            # ln -s ${overrides.clang-unwrapped}/bin/clang $out/bin/clang
+            # ln -s ${llvmFinal.clang-unwrapped}/bin/clang $out/bin/clang
             ln -s $out/bin/clang++ $out/bin/clang
           ''
           + (lib.optionalString (rocmSupport || cudaSupport) ''
-            ln -s ${overrides.libclc}/bin/prepare_builtins $out/bin/prepare_builtins
+            ln -s ${llvmFinal.libclc}/bin/prepare_builtins $out/bin/prepare_builtins
           '');
       };
     in {
@@ -726,10 +707,10 @@
       nativeBuildInputs = [cmake ninja];
 
       buildInputs = [
-        overrides.llvm
-        # llvmPkgs.clang
-        # llvmPkgs.clang-tools
-        overrides.sycl
+        llvmFinal.llvm
+        # llvmFinal.clang
+        # llvmFinal.clang-tools
+        llvmFinal.sycl
         tools
       ];
 
@@ -745,8 +726,8 @@
       ninjaFlags = ["-v"];
 
       cmakeFlags = [
-        "-DLLVM_TOOLS_DIR=${overrides.llvm}/bin"
-        "-DCLANG_TOOLS_DIR=${llvmPkgs.clang-tools}/bin"
+        "-DLLVM_TOOLS_DIR=${llvmFinal.llvm}/bin"
+        "-DCLANG_TOOLS_DIR=${llvmFinal.clang-tools}/bin"
         # (lib.cmakeFeature "CMAKE_C_COMPILER" "${stdenv.cc}/bin/clang")
         # Despite being in libdevice, this flag is called LIBCLC_
         "-DLIBCLC_CUSTOM_LLVM_TOOLS_BINARY_DIR=${tools}/bin"
@@ -775,7 +756,7 @@
       # ];
     });
 
-    clang-unwrapped = (llvmPkgs.clang-unwrapped.override {}).overrideAttrs (old: {
+    libclang = llvmPrev.libclang.overrideAttrs (old: {
       buildInputs =
         (old.buildInputs or [])
         ++ [
@@ -816,15 +797,15 @@
         # TODO: clang-offload-bundler will not be wrapper properly
 
         substituteInPlace tools/clang-linker-wrapper/ClangLinkerWrapper.cpp \
-            --replace-fail 'findProgram("llvm-objcopy", {getMainExecutable("llvm-objcopy")})' '"${overrides.llvm}/bin/llvm-objcopy"' \
+            --replace-fail 'findProgram("llvm-objcopy", {getMainExecutable("llvm-objcopy")})' '"${llvmFinal.llvm}/bin/llvm-objcopy"' \
             --replace-fail 'findProgram("clang-offload-bundler", {getMainExecutable("clang-offload-bundler")})' '"$out/bin/clang-offload-bundler"' \
-            --replace-fail 'findProgram("spirv-to-ir-wrapper", {getMainExecutable("spirv-to-ir-wrapper")})' '"${overrides.llvm}/bin/spirv-to-ir-wrapper"' \
-            --replace-fail 'findProgram("sycl-post-link", {getMainExecutable("sycl-post-link")})' '"${overrides.llvm}/bin/sycl-post-link"' \
-            --replace-fail 'findProgram("llvm-spirv", {getMainExecutable("llvm-spirv")})' '"${overrides.llvm}/bin/llvm-spirv"' \
-            --replace-fail 'findProgram("opencl-aot", {getMainExecutable("opencl-aot")})' '"${overrides.opencl-aot}/bin/opencl-aot"' \
+            --replace-fail 'findProgram("spirv-to-ir-wrapper", {getMainExecutable("spirv-to-ir-wrapper")})' '"${llvmFinal.llvm}/bin/spirv-to-ir-wrapper"' \
+            --replace-fail 'findProgram("sycl-post-link", {getMainExecutable("sycl-post-link")})' '"${llvmFinal.llvm}/bin/sycl-post-link"' \
+            --replace-fail 'findProgram("llvm-spirv", {getMainExecutable("llvm-spirv")})' '"${llvmFinal.llvm}/bin/llvm-spirv"' \
+            --replace-fail 'findProgram("opencl-aot", {getMainExecutable("opencl-aot")})' '"${llvmFinal.opencl-aot}/bin/opencl-aot"' \
             --replace-fail 'findProgram("ocloc", {getMainExecutable("ocloc")})' '"$OCLOC"' \
-            --replace-fail 'findProgram("clang", {getMainExecutable("clang")})' '"${llvmPkgs.clang}/bin/clang"' \
-            --replace-fail 'findProgram("llvm-link", {getMainExecutable("llvm-link")})' '"${overrides.llvm}/bin/llvm-link"'
+            --replace-fail 'findProgram("clang", {getMainExecutable("clang")})' '"${llvmFinal.clang}/bin/clang"' \
+            --replace-fail 'findProgram("llvm-link", {getMainExecutable("llvm-link")})' '"${llvmFinal.llvm}/bin/llvm-link"'
 
         # Apply the same pattern to the second file, which has a slightly different
         # function signature for findProgram.
@@ -833,7 +814,7 @@
             tools/clang-sycl-linker/ClangSYCLLinker.cpp
 
         substituteInPlace tools/clang-sycl-linker/ClangSYCLLinker.cpp \
-            --replace-fail 'findProgram(Args, "opencl-aot", {getMainExecutable("opencl-aot")})' '"${overrides.opencl-aot}/bin/opencl-aot"' \
+            --replace-fail 'findProgram(Args, "opencl-aot", {getMainExecutable("opencl-aot")})' '"${llvmFinal.opencl-aot}/bin/opencl-aot"' \
             --replace-fail 'findProgram(Args, "ocloc", {getMainExecutable("ocloc")})' '"$OCLOC"'
 
         # # After replacing the calls that use it, the getMainExecutable function
@@ -852,113 +833,6 @@
       #     (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_VC-INTRINSICS" "${deps.vc-intrinsics}")
       #   ];
     });
-
-    # clang-tools = llvmPkgs.clang-tools.overrideAttrs (old: {
-
-    # });
-
-    libcxx = llvmPkgs.libcxx.overrideAttrs (old: {
-      # inherit stdenv;
-      buildInputs = old.buildInputs ++ [zstd zlib];
-    });
-
-    # # # pick clang appropriate for package set we are targeting
-    # # clang =
-    # #   # if stdenv.targetPlatform.libc == null
-    # #   # then tools.clangNoLibc
-    # #   # else if stdenv.targetPlatform.useLLVM or false
-    # #   # then tools.clangUseLLVM
-    # #   # else
-    # #   if (stdenv).cc.isGNU
-    # #   then overrides.libstdcxxClang
-    # #   else overrides.libcxxClang;
-    # bintools = llvmPkgs.bintools;
-
-    # mkExtraBuildCommands0 = cc:
-    #   ''
-    #     rsrc="$out/resource-root"
-    #     mkdir "$rsrc"
-    #     echo "-resource-dir=$rsrc" >> $out/nix-support/cc-cflags
-    #   ''
-    #   # clang standard c headers are incompatible with FreeBSD so we have to put them in -idirafter instead of -resource-dir
-    #   # see https://github.com/freebsd/freebsd-src/commit/f382bac49b1378da3c2dd66bf721beaa16b5d471
-    #   + (
-    #     if stdenv.targetPlatform.isFreeBSD
-    #     then ''
-    #       echo "-idirafter ${lib.getLib cc}/lib/clang/${lib.versions.major overrides.llvm.version}/include" >> $out/nix-support/cc-cflags
-    #     ''
-    #     else ''
-    #       ln -s "${lib.getLib cc}/lib/clang/${lib.versions.major overrides.llvm.version}/include" "$rsrc"
-    #     ''
-    #   );
-
-    # mkExtraBuildCommands = cc:
-    #   overrides.mkExtraBuildCommands0 cc
-    #   + ''
-    #     ln -s "${llvmPkgs.compiler-rt.out}/lib" "$rsrc/lib"
-    #     ln -s "${llvmPkgs.compiler-rt.out}/share" "$rsrc/share"
-    #   '';
-
-    # clangNoLibcNoRt = wrapCCWith rec {
-    #   cc = overrides.clang-unwrapped;
-    #   libcxx = null;
-    #   bintools = llvmPkgs.bintoolsNoLibc;
-    #   extraPackages = [];
-    #   # "-nostartfiles" used to be needed for pkgsLLVM, causes problems so don't include it.
-    #   extraBuildCommands = overrides.mkExtraBuildCommands0 cc;
-
-    #   # "-nostartfiles" used to be needed for pkgsLLVM, causes problems so don't include it.
-    #   nixSupport.cc-cflags = lib.optional (
-    #     stdenv.targetPlatform.isWasm
-    #   ) "-fno-exceptions";
-    # };
-
-    # clang = overrideCC
-
-    # libstdcxxClang = wrapCCWith rec {
-    #   cc = overrides.clang-unwrapped;
-    #   # libstdcxx is taken from gcc in an ad-hoc way in cc-wrapper.
-    #   libcxx = null;
-    #   extraPackages = [llvmPkgs.compiler-rt];
-    #   extraBuildCommands = overrides.mkExtraBuildCommands cc;
-    # };
-
-    # libcxxClang = wrapCCWith rec {
-    #   cc = overrides.clang-unwrapped;
-    #   libcxx = libcxx.libcxx;
-    #   extraPackages = [llvmPkgs.compiler-rt];
-    #   extraBuildCommands = overrides.mkExtraBuildCommands cc;
-    # };
-
-    # clangWithLibcAndBasicRt = wrapCCWith (
-    #         rec {
-    #           cc = overrides.clang-unwrapped;
-    #           libcxx = null;
-    #           bintools = bintools';
-    #           extraPackages = [ targetLlvmLibraries.compiler-rt-no-libc ];
-    #           extraBuildCommands =
-    #             lib.optionalString (lib.versions.major metadata.release_version == "13") ''
-    #               echo "-rtlib=compiler-rt" >> $out/nix-support/cc-cflags
-    #               echo "-B${targetLlvmLibraries.compiler-rt-no-libc}/lib" >> $out/nix-support/cc-cflags
-    #               echo "-nostdlib++" >> $out/nix-support/cc-cflags
-    #             ''
-    #             + mkExtraBuildCommandsBasicRt cc;
-    #         }
-    #         // lib.optionalAttrs (lib.versionAtLeast metadata.release_version "14") {
-    #           nixSupport.cc-cflags = [
-    #             "-rtlib=compiler-rt"
-    #             "-B${targetLlvmLibraries.compiler-rt-no-libc}/lib"
-    #             "-nostdlib++"
-    #           ]
-    #           ++ lib.optional (
-    #             lib.versionAtLeast metadata.release_version "15" && stdenv.targetPlatform.isWasm
-    #           ) "-fno-exceptions";
-    #         }
-    #       );
-    # # stdenv = overrideCC stdenv llvmPkgs.clang;
-
-    # libcxxStdenv = overrideCC stdenv llvmPkgs.libcxxClang;
-    stdenv = overrideCC stdenv llvmPkgs.libcxxClang;
 
     xpti = stdenv.mkDerivation (finalAttrs: {
       pname = "xpti";
@@ -1003,7 +877,7 @@
       buildInputs = [
         parallel-hashmap
         emhash
-        overrides.xpti
+        llvmFinal.xpti
       ];
 
       # TODO
@@ -1016,6 +890,4 @@
         (lib.cmakeBool "XPTI_ENABLE_WERROR" true)
       ];
     });
-  };
-in
-  llvmPkgs // overrides
+  })
