@@ -45,8 +45,8 @@
   buildDocs ? false,
   buildMan ? false,
 }: let
-  version = "unstable-2025-09-05";
-  date = "20250905";
+  version = "unstable-2025-09-09";
+  date = "20250909";
   llvmPackages = llvmPackages_21;
   stdenv =
     if useLibcxx
@@ -92,18 +92,16 @@ in
       owner = "intel";
       repo = "llvm";
       # tag = "v${version}";
-      rev = "25fbd1f710d9f5b1426b447e45ba8a7b07ab739b";
-      hash = "sha256-VlcqSncrk/dp5WHg5rAMWXpnV7BBJGwld42Ew/IZ6ME=";
+      rev = "61de220eccc56aa0f85e64f94d1fdd6383e186a1";
+      hash = "sha256-/Yd5w2dBFy+5OLECXJcmsjwRCN7aehOb7+C+QuiYSms=";
     };
 
-    # # I'd like to split outputs, but currently this fails
-    # outputs = [
-    #   "out"
-    #   "lib"
-    #   "dev"
-    #   "rsrc"
-    #   "libexec"
-    # ];
+    outputs = [
+      "out"
+      "lib"
+      "dev"
+      "python"
+    ];
 
     nativeBuildInputs =
       [
@@ -140,10 +138,13 @@ in
       libedit
     ];
 
-    # TODO: Is this needed?
-    nativeCheckInputs = lib.optionals buildTests [
-      ctestCheckHook
-    ];
+    # # TODO: Is this needed?
+    # nativeCheckInputs = lib.optionals buildTests [
+    #   ctestCheckHook
+    # ];
+    checkTarget = "check-all";
+
+    cmakeBuildType = "Release";
 
     patches = [
       (fetchpatch {
@@ -296,6 +297,80 @@ in
     enableParallelBuilding = true;
 
     doCheck = true;
+
+    preFixup = ''
+      # Phase 1: Move all development files from the main ($out) package to the
+      # development ($dev) package. This includes headers, static libraries,
+      # and build system configuration files (CMake, pkg-config).
+
+      echo "Moving header files to \$dev output..."
+      if [ -d "$out/include" ]; then
+        # Move the entire include directory to the dev output.
+        mv "$out/include" "$dev/"
+      fi
+
+      echo "Moving static libraries (.a) to \$dev output..."
+      mkdir -p "$dev/lib"
+      # Find and move all static libraries from the main output's lib dir.
+      find "$out/lib" -maxdepth 1 -name "*.a" -exec mv -t "$dev/lib" {} +
+
+      echo "Moving CMake files to \$dev output..."
+      if [ -d "$out/lib/cmake" ]; then
+        mkdir -p "$dev/lib"
+        mv "$out/lib/cmake" "$dev/lib/"
+      fi
+
+      echo "Moving pkg-config files to \$dev output..."
+      if [ -d "$out/share/pkgconfig" ]; then
+        mkdir -p "$dev/share"
+        mv "$out/share/pkgconfig" "$dev/share/"
+      fi
+      if [ -d "$out/lib/pkgconfig" ]; then
+        mkdir -p "$dev/lib/pkgconfig"
+        mv "$out/lib/pkgconfig"/* "$dev/lib/pkgconfig/"
+        rmdir "$out/lib/pkgconfig"
+      fi
+
+
+      # Phase 2: Consolidate remaining development files from the library ($lib)
+      # package into the development ($dev) package. This also resolves a
+      # duplication issue with libLLVMGenXIntrinsics.a.
+
+      echo "Moving static libraries (.a) from \$lib to \$dev..."
+      if [ -d "$lib/lib" ]; then
+        find "$lib/lib" -maxdepth 1 -name "*.a" -exec mv -t "$dev/lib" {} +
+      fi
+      if [ -d "$lib/lib/pkgconfig" ]; then
+        mkdir -p "$dev/lib/pkgconfig"
+        mv "$lib"/lib/pkgconfig/* "$dev/lib/pkgconfig/"
+        rm -rf "$lib/lib/pkgconfig"
+      fi
+
+      # Phase 3: De-duplicate shared libraries. The canonical versions are in
+      # the $lib output, so we remove the redundant copies from $out.
+
+      echo "Removing duplicated shared libraries from \$out..."
+      rm -f $out/lib/libur_loader.so*
+      rm -f $out/lib/libur_adapter_*.so*
+
+      # Phase 4: Consolidate split tool dependencies. Move helper executables
+      # and libraries from $lib to $out so that user-facing tools are
+      # self-contained and functional.
+
+      echo "Moving scan-build helpers from \$lib to \$out..."
+      if [ -d "$lib/libexec" ]; then
+        mkdir -p "$out/libexec"
+        mv "$lib/libexec"/* "$out/libexec/"
+        rm -rf "$lib/libexec"
+      fi
+
+      echo "Moving SYCL tool helpers from \$lib to \$out..."
+      if [ -d "$lib/lib" ]; then
+        # Use a subshell with nullglob to safely handle cases where no files match.
+        (shopt -s nullglob; mv "$lib"/lib/libsycl_*.so "$out/lib/")
+        (shopt -s nullglob; mv "$lib"/lib/libze_*.so "$out/lib/")
+      fi
+    '';
 
     meta = with lib; {
       description = "Intel LLVM-based compiler with SYCL support";
