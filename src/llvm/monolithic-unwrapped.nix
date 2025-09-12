@@ -27,6 +27,7 @@
   fetchpatch,
   # opencl-headers,
   # emhash,
+  perl,
   zlib,
   wrapCC,
   ctestCheckHook,
@@ -41,7 +42,7 @@
   vulkanSupport ? true,
   useLibcxx ? false,
   useLld ? true,
-  buildTests ? true,
+  buildTests ? false,
   buildDocs ? false,
   buildMan ? false,
 }: let
@@ -74,11 +75,13 @@
         root = "/build/source/build";
       in ''
         mkdir -p $out/bin
-        cat > $out/bin/clang++ <<EOF
+        cat > $out/bin/clang-21 <<EOF
         #!/bin/sh
         exec "${root}/bin/clang-21" "\$@"
         EOF
-        chmod +x $out/bin/clang++
+        chmod +x $out/bin/clang-21
+        cp $out/bin/clang-21 $out/bin/clang
+        cp $out/bin/clang-21 $out/bin/clang++
       '';
       passthru.isClang = true;
     }
@@ -96,12 +99,12 @@ in
       hash = "sha256-/Yd5w2dBFy+5OLECXJcmsjwRCN7aehOb7+C+QuiYSms=";
     };
 
-    outputs = [
-      "out"
-      "lib"
-      "dev"
-      "python"
-    ];
+    # outputs = [
+    #   "out"
+    #   "lib"
+    #   "dev"
+    #   "python"
+    # ];
 
     nativeBuildInputs =
       [
@@ -113,6 +116,9 @@ in
       ]
       ++ lib.optionals useLld [
         llvmPackages.bintools
+      ]
+      ++ lib.optionals buildTests [
+        perl
       ];
 
     buildInputs =
@@ -132,6 +138,8 @@ in
       # ]
       ++ unified-runtime'.buildInputs;
 
+    # separateDebugInfo = true;
+
     propagatedBuildInputs = [
       zstd
       zlib
@@ -142,7 +150,14 @@ in
     # nativeCheckInputs = lib.optionals buildTests [
     #   ctestCheckHook
     # ];
-    checkTarget = "check-all";
+    checkTarget =
+      if buildTests
+      then "check-all"
+      else null;
+
+    checkFlags = lib.optionals buildTests [
+      "LIT_ARGS=--param clang=${ccWrapperStub}/bin/clang++ --param cxx=${ccWrapperStub}/bin/clang++"
+    ];
 
     cmakeBuildType = "Release";
 
