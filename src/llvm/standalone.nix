@@ -33,6 +33,7 @@
   lit,
   # TODO: llvmPackages.libcxx? libcxxStdenv?
   libcxx,
+  strace,
   symlinkJoin,
   rocmPackages ? {},
   level-zero,
@@ -40,7 +41,7 @@
   openclSupport ? true,
   # Broken
   cudaSupport ? false,
-  rocmSupport ? true,
+  rocmSupport ? false,
   rocmGpuTargets ? builtins.concatStringsSep ";" rocmPackages.clr.gpuTargets,
   nativeCpuSupport ? false,
   vulkanSupport ? true,
@@ -90,6 +91,8 @@
         url = "https://github.com/intel/llvm/commit/1c22570828e24a628c399aae09ce15ad82b924c6.patch";
         hash = "sha256-leBTUmanYaeoNbmA0m9VFX/5ViACuXidWUhohewshQQ=";
       })
+      # Fix hardcoded paths for llvm-foreach and llvm-link in SYCL toolchain
+      ./patches/sycl-path-lookup.patch
     ];
   };
   src = runCommand "intel-llvm-src-fixed-${version}" {} ''
@@ -510,44 +513,47 @@ in
       ];
     });
 
-    libclc = llvmPrev.libclc.overrideAttrs (old: {
-      nativeBuildInputs = builtins.filter (x: lib.getName x != "SPIRV-LLVM-Translator") old.nativeBuildInputs;
+    libclc =
+      (llvmPrev.libclc.override {
+        buildLlvmTools = llvmFinal.buildLlvmTools;
+      }).overrideAttrs (old: {
+        nativeBuildInputs = builtins.filter (x: lib.getName x != "SPIRV-LLVM-Translator") old.nativeBuildInputs;
 
-      buildInputs =
-        old.buildInputs
-        ++ [
-          zstd
-          zlib
-          # Required by libclc-remangler
-          llvmFinal.clang.cc.dev
+        buildInputs =
+          old.buildInputs
+          ++ [
+            zstd
+            zlib
+            # Required by libclc-remangler
+            llvmFinal.clang.cc.dev
+          ];
+
+        cmakeFlags = [
+          # Otherwise it'll misdetect the unwrapped just-built compiler as the compiler to use,
+          # and configure will fail to compile a basic test program with it.
+          (lib.cmakeFeature "CMAKE_C_COMPILER" "${stdenv.cc}/bin/clang")
+          (lib.cmakeFeature "LLVM_EXTERNAL_LIT" "${lit}/bin/lit")
+
+          "-DLLVM_BUILD_UTILS=ON"
+          "-DLLVM_INSTALL_UTILS=ON"
+
+          # (lib.cmakeBool "LIBCLC_GENERATE_REMANGLED_VARIANTS" false)
         ];
 
-      cmakeFlags = [
-        # Otherwise it'll misdetect the unwrapped just-built compiler as the compiler to use,
-        # and configure will fail to compile a basic test program with it.
-        (lib.cmakeFeature "CMAKE_C_COMPILER" "${stdenv.cc}/bin/clang")
-        (lib.cmakeFeature "LLVM_EXTERNAL_LIT" "${lit}/bin/lit")
+        patches =
+          [(builtins.head old.patches)]
+          ++ [
+            ./patches/libclc-use-default-paths.patch
+            ./patches/libclc-remangler.patch
+            ./patches/libclc-find-clang.patch
+            ./patches/libclc-utils.patch
+          ];
 
-        "-DLLVM_BUILD_UTILS=ON"
-        "-DLLVM_INSTALL_UTILS=ON"
-
-        # (lib.cmakeBool "LIBCLC_GENERATE_REMANGLED_VARIANTS" false)
-      ];
-
-      patches =
-        [(builtins.head old.patches)]
-        ++ [
-          ./patches/libclc-use-default-paths.patch
-          ./patches/libclc-remangler.patch
-          ./patches/libclc-find-clang.patch
-          ./patches/libclc-utils.patch
-        ];
-
-      preInstall = ''
-        # TODO: Figure out why this is needed
-        cp utils/prepare_builtins prepare_builtins
-      '';
-    });
+        preInstall = ''
+          # TODO: Figure out why this is needed
+          cp utils/prepare_builtins prepare_builtins
+        '';
+      });
 
     vc-intrinsics = vc-intrinsics.override {
       # llvmPackages_21 = llvmPkgs // overrides;
@@ -599,13 +605,13 @@ in
       #   ls ../unified-runtime
       #   cat ../unified-runtime/source/adapters/level_zero/common.cpp
       # '';
-      postPatch = ''
-        pushd ../unified-runtime
-        chmod -R u+w .
-        patch -p1 < ${./patches/unified-runtime.patch}
-        patch -p1 < ${./patches/unified-runtime-2.patch}
-        popd
-      '';
+      # postPatch = ''
+      #   pushd ../unified-runtime
+      #   chmod -R u+w .
+      #   patch -p1 < ${./patches/unified-runtime.patch}
+      #   patch -p1 < ${./patches/unified-runtime-2.patch}
+      #   popd
+      # '';
 
       # sourceRoot = "${finalAttrs.src.name}/llvm";
       sourceRoot = "${finalAttrs.src.name}/sycl";
@@ -697,15 +703,12 @@ in
         ];
         # # I think it wants unwrapped clang and wrapped clang++
         # # but I'm not sure yet. TODO
-        postBuild =
-          ''
-            rm $out/bin/clang
-            # ln -s ${llvmFinal.clang-unwrapped}/bin/clang $out/bin/clang
-            ln -s $out/bin/clang++ $out/bin/clang
-          ''
-          + (lib.optionalString (rocmSupport || cudaSupport) ''
-            ln -s ${llvmFinal.libclc}/bin/prepare_builtins $out/bin/prepare_builtins
-          '');
+        postBuild = ''
+          rm $out/bin/clang
+          # ln -s ${llvmFinal.clang-unwrapped}/bin/clang $out/bin/clang
+          ln -s $out/bin/clang++ $out/bin/clang
+          ln -s ${llvmFinal.libclc}/bin/prepare_builtins $out/bin/prepare_builtins
+        '';
       };
     in {
       pname = "libdevice";
@@ -714,14 +717,13 @@ in
       inherit src;
       sourceRoot = "${finalAttrs.src.name}/libdevice";
 
-      nativeBuildInputs = [cmake ninja];
+      nativeBuildInputs = [cmake ninja tools];
 
       buildInputs = [
         llvmFinal.llvm
         # llvmFinal.clang
         # llvmFinal.clang-tools
         llvmFinal.sycl
-        tools
       ];
 
       patches = [
@@ -731,11 +733,19 @@ in
 
       hardeningDisable = ["zerocallusedregs"];
 
-      NIX_CFLAGS_COMPILE = "-v";
+      # NIX_CFLAGS_COMPILE = "-v";
 
       ninjaFlags = ["-v"];
 
+      # preBuild = ''
+      #   type buildPhase
+      # '';
+      # preBuild = ''
+      #   type buildPhase
+      # '';
+
       cmakeFlags = [
+        (lib.cmakeFeature "CMAKE_C_COMPILER" "${stdenv.cc}/bin/clang")
         "-DLLVM_TOOLS_DIR=${llvmFinal.llvm}/bin"
         "-DCLANG_TOOLS_DIR=${llvmFinal.clang-tools}/bin"
         # (lib.cmakeFeature "CMAKE_C_COMPILER" "${stdenv.cc}/bin/clang")
@@ -766,83 +776,75 @@ in
       # ];
     });
 
-    libclang = llvmPrev.libclang.overrideAttrs (old: {
-      buildInputs =
-        (old.buildInputs or [])
-        ++ [
-          zstd
-          zlib
-          libedit
-          # overrides.llvm.dev
-        ];
+    libclang =
+      (llvmPrev.libclang.override {
+        buildLlvmTools = llvmFinal.buildLlvmTools;
+        # tblgen = llvmFinal.tblgen;
+      }).overrideAttrs (old: {
+        buildInputs =
+          (old.buildInputs or [])
+          ++ [
+            zstd
+            zlib
+            libedit
+            # overrides.llvm.dev
+          ];
 
-      prePatch = ''
-        echo hiiii
-      '';
-      patchPhase = ''
-        echo hiii
-        exit 1
-      '';
-      postPatch = ''
-        ${old.postPatch or ""}
+        postPatch = ''
+          ${old.postPatch or ""}
 
-        echo AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+          substituteInPlace lib/Driver/CMakeLists.txt \
+              --replace-fail "DeviceConfigFile" ""
 
-        exit 1
+          # The findProgram calls in this file are often split across multiple lines.
+          # Use sed to join them into a single line so that substituteInPlace can match them.
+          # This handles cases where the line break is after '=' or after '('.
+          sed -i \
+              -e '/Expected<std::string>.*=$/{N;s/\n\s*//}' \
+              -e '/findProgram($/{N;s/\n\s*//}' \
+              tools/clang-linker-wrapper/ClangLinkerWrapper.cpp
 
-        substituteInPlace lib/Driver/CMakeLists.txt \
-            --replace-fail "DeviceConfigFile" ""
-            echo BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
+          # We want to use a shell-expansion here, as the name contains a version number (e.g., ocloc-25.31.1).
+          OCLOC="${intel-compute-runtime}/bin/ocloc-*"
+          # TODO: clang-offload-bundler will not be wrapper properly
 
-        # The findProgram calls in this file are often split across multiple lines.
-        # Use sed to join them into a single line so that substituteInPlace can match them.
-        # This handles cases where the line break is after '=' or after '('.
-        sed -i \
-            -e '/Expected<std::string>.*=$/{N;s/\n\s*//}' \
-            -e '/findProgram($/{N;s/\n\s*//}' \
-            tools/clang-linker-wrapper/ClangLinkerWrapper.cpp
+          substituteInPlace tools/clang-linker-wrapper/ClangLinkerWrapper.cpp \
+              --replace-fail 'findProgram("llvm-objcopy", {getMainExecutable("llvm-objcopy")})' '"${llvmFinal.llvm}/bin/llvm-objcopy"' \
+              --replace-fail 'findProgram("clang-offload-bundler", {getMainExecutable("clang-offload-bundler")})' '"$out/bin/clang-offload-bundler"' \
+              --replace-fail 'findProgram("spirv-to-ir-wrapper", {getMainExecutable("spirv-to-ir-wrapper")})' '"${llvmFinal.llvm}/bin/spirv-to-ir-wrapper"' \
+              --replace-fail 'findProgram("sycl-post-link", {getMainExecutable("sycl-post-link")})' '"${llvmFinal.llvm}/bin/sycl-post-link"' \
+              --replace-fail 'findProgram("llvm-spirv", {getMainExecutable("llvm-spirv")})' '"${llvmFinal.llvm}/bin/llvm-spirv"' \
+              --replace-fail 'findProgram("opencl-aot", {getMainExecutable("opencl-aot")})' '"${llvmFinal.opencl-aot}/bin/opencl-aot"' \
+              --replace-fail 'findProgram("ocloc", {getMainExecutable("ocloc")})' '"$OCLOC"' \
+              --replace-fail 'findProgram("clang", {getMainExecutable("clang")})' '"$out/bin/clang"' \
+              --replace-fail 'findProgram("llvm-link", {getMainExecutable("llvm-link")})' '"${llvmFinal.llvm}/bin/llvm-link"'
 
-        # We want to use a shell-expansion here, as the name contains a version number (e.g., ocloc-25.31.1).
-        OCLOC="${intel-compute-runtime}/bin/ocloc-*"
-        # TODO: clang-offload-bundler will not be wrapper properly
+          # Apply the same pattern to the second file, which has a slightly different
+          # function signature for findProgram.
+          sed -i \
+              -e '/Expected<std::string>.*=$/{N;s/\n\s*//}' \
+              tools/clang-sycl-linker/ClangSYCLLinker.cpp
 
-        substituteInPlace tools/clang-linker-wrapper/ClangLinkerWrapper.cpp \
-            --replace-fail 'findProgram("llvm-objcopy", {getMainExecutable("llvm-objcopy")})' '"${llvmFinal.llvm}/bin/llvm-objcopy"' \
-            --replace-fail 'findProgram("clang-offload-bundler", {getMainExecutable("clang-offload-bundler")})' '"$out/bin/clang-offload-bundler"' \
-            --replace-fail 'findProgram("spirv-to-ir-wrapper", {getMainExecutable("spirv-to-ir-wrapper")})' '"${llvmFinal.llvm}/bin/spirv-to-ir-wrapper"' \
-            --replace-fail 'findProgram("sycl-post-link", {getMainExecutable("sycl-post-link")})' '"${llvmFinal.llvm}/bin/sycl-post-link"' \
-            --replace-fail 'findProgram("llvm-spirv", {getMainExecutable("llvm-spirv")})' '"${llvmFinal.llvm}/bin/llvm-spirv"' \
-            --replace-fail 'findProgram("opencl-aot", {getMainExecutable("opencl-aot")})' '"${llvmFinal.opencl-aot}/bin/opencl-aot"' \
-            --replace-fail 'findProgram("ocloc", {getMainExecutable("ocloc")})' '"$OCLOC"' \
-            --replace-fail 'findProgram("clang", {getMainExecutable("clang")})' '"${llvmFinal.clang}/bin/clang"' \
-            --replace-fail 'findProgram("llvm-link", {getMainExecutable("llvm-link")})' '"${llvmFinal.llvm}/bin/llvm-link"'
+          substituteInPlace tools/clang-sycl-linker/ClangSYCLLinker.cpp \
+              --replace-fail 'findProgram(Args, "opencl-aot", {getMainExecutable("opencl-aot")})' '"${llvmFinal.opencl-aot}/bin/opencl-aot"' \
+              --replace-fail 'findProgram(Args, "ocloc", {getMainExecutable("ocloc")})' '"$OCLOC"'
 
-        # Apply the same pattern to the second file, which has a slightly different
-        # function signature for findProgram.
-        sed -i \
-            -e '/Expected<std::string>.*=$/{N;s/\n\s*//}' \
-            tools/clang-sycl-linker/ClangSYCLLinker.cpp
+          # # After replacing the calls that use it, the getMainExecutable function
+          # # in this file is no longer needed. Remove it to prevent compiler warnings
+          # # or errors about unused functions.
+          # sed -i '/^std::string getMainExecutable(const char \*Name) {/,/}/d' \
+          #   clang/tools/clang-sycl-linker/ClangSYCLLinker.cpp
+        '';
 
-        substituteInPlace tools/clang-sycl-linker/ClangSYCLLinker.cpp \
-            --replace-fail 'findProgram(Args, "opencl-aot", {getMainExecutable("opencl-aot")})' '"${llvmFinal.opencl-aot}/bin/opencl-aot"' \
-            --replace-fail 'findProgram(Args, "ocloc", {getMainExecutable("ocloc")})' '"$OCLOC"'
+        # cmakeFlags =
+        #   (old.cmakeFlags or [])
+        #   ++ [
+        #     (lib.cmakeBool "FETCHCONTENT_FULLY_DISCONNECTED" true)
+        #     (lib.cmakeBool "FETCHCONTENT_QUIET" false)
 
-        # # After replacing the calls that use it, the getMainExecutable function
-        # # in this file is no longer needed. Remove it to prevent compiler warnings
-        # # or errors about unused functions.
-        # sed -i '/^std::string getMainExecutable(const char \*Name) {/,/}/d' \
-        #   clang/tools/clang-sycl-linker/ClangSYCLLinker.cpp
-      '';
-
-      # cmakeFlags =
-      #   (old.cmakeFlags or [])
-      #   ++ [
-      #     (lib.cmakeBool "FETCHCONTENT_FULLY_DISCONNECTED" true)
-      #     (lib.cmakeBool "FETCHCONTENT_QUIET" false)
-
-      #     (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_VC-INTRINSICS" "${deps.vc-intrinsics}")
-      #   ];
-    });
+        #     (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_VC-INTRINSICS" "${deps.vc-intrinsics}")
+        #   ];
+      });
 
     xpti = stdenv.mkDerivation (finalAttrs: {
       pname = "xpti";
