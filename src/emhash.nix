@@ -2,33 +2,23 @@
   stdenv,
   fetchFromGitHub,
   cmake,
-  ninja,
 }:
-stdenv.mkDerivation {
+stdenv.mkDerivation (finalAttrs: {
   pname = "emhash";
-  version = "unstable-2025-08-10";
+  version = "1.0.1";
 
   src = fetchFromGitHub {
     owner = "ktprime";
     repo = "emhash";
-    rev = "4867731d6f631e63deb99278f1dccfc7b01783b6";
-    hash = "sha256-TUQGxN86nf88eU2AtRVMycTLhGavxTP7el+icDe2iaY=";
+    rev = "v${finalAttrs.version}";
+    hash = "sha256-dFj/QaGdTJYdcxKlS9tES6OHae8xPMnrG9ccRNM/hi8=";
   };
 
   nativeBuildInputs = [
     cmake
-    # ninja
   ];
 
   cmakeFlags = [
-    "-DCMAKE_CXX_FLAGS='-msse4.1'"
     "-DWITH_BENCHMARKS=Off"
   ];
-  #
-  # dontBuild = true;
-
-  # installPhase = ''
-  #   mkdir -p $out
-  #   cp emhash $out/bin/
-  # '';
-}
+})
