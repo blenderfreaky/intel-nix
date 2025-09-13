@@ -202,6 +202,31 @@ in
       inherit (llvmFinal) tblgen llvm libclc clang;
     };
 
+    merged = symlinkJoin {
+      pname = "intel-llvm";
+      inherit version;
+      paths = with llvmFinal; [
+        llvm
+        clang
+        sycl
+        opencl-aot
+        xpti
+        xptifw
+        libdevice
+      ];
+    };
+
+    stdenv = llvmPrev.stdenv.override {
+      cc = llvmFinal.merged;
+    };
+    #stdenv = llvmPrev.stdenv.overrideAttrs (old: {
+    #  propagatedBuildInputs =
+    #    old.propagatedBuildInputs
+    #    ++ [
+    #      llvmFinal.merged
+    #    ];
+    #});
+
     # Synthetic, not to be built directly
     llvm-base =
       (llvmPrev.libllvm.override {

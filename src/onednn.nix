@@ -4,6 +4,7 @@
   ninja,
   fetchFromGitHub,
   oneTBB,
+  opencl-headers,
   ocl-icd,
   gcc,
   lib,
@@ -30,6 +31,8 @@ in
       oneTBB
       ocl-icd
       llvm.openmp
+      #llvm.merged
+      opencl-headers
       gcc
     ];
 

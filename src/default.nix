@@ -8,8 +8,8 @@
     inherit unified-runtime vc-intrinsics emhash; # spirv-llvm-translator;
   };
 
-  # llvm = llvm-standalone;
-  llvm = llvm-monolithic;
+  llvm = llvm-standalone;
+  # llvm = llvm-monolithic;
 
   unified-runtime = callPackage ./unified-runtime.nix {
     inherit unified-memory-framework hdr-histogram;
