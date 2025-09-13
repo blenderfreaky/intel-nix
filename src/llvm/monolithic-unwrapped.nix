@@ -313,7 +313,7 @@ in
 
     doCheck = true;
 
-    preFixup = ''
+    preFixup = lib.optionalString false ''
       # Phase 1: Move all development files from the main ($out) package to the
       # development ($dev) package. This includes headers, static libraries,
       # and build system configuration files (CMake, pkg-config).
