@@ -6,6 +6,7 @@
   ninja,
   mkl,
   oneTBB,
+  opencl-headers,
   oneMath-sycl-blas,
   useMKL ? false,
   useGenericBlas ? true,
@@ -30,6 +31,7 @@ in
     buildInputs =
       [
         oneTBB
+        opencl-headers
       ]
       ++ lib.optionals useMKL [mkl]
       ++ lib.optionals useGenericBlas [oneMath-sycl-blas];
