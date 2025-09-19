@@ -31,7 +31,7 @@
   rocmGpuTargets ? builtins.concatStringsSep ";" rocmPackages.clr.gpuTargets,
   # I don't think this can be off, so remove?
   vulkanSupport ? true,
-  nativeCpuSupport ? true,
+  nativeCpuSupport ? false,
   buildTests ? false,
   lit,
   filecheck,
@@ -59,17 +59,51 @@
     ];
   };
 
+  cudaComponents = with cudaPackages; [
+    (cuda_nvcc.__spliced.buildHost or cuda_nvcc)
+    (cuda_nvprune.__spliced.buildHost or cuda_nvprune)
+    cuda_cccl # block_load.cuh
+    cuda_cudart # cuda.h
+    cuda_cupti # cupti.h
+    cuda_nvcc # See https://github.com/google/jax/issues/
+    cuda_nvml_dev # nvml.h
+    cuda_nvtx # nvToolsExt.h
+    libcublas # cublas_api.h
+    libcufft # cufft.h
+    libcurand # curand.h
+    libcusolver # cusolver_common.h
+    libcusparse # cusparse.h
+  ];
+
+  cudatoolkitDevMerged =
+    symlinkJoin {
+      name = "cuda-${cudaPackages.cudaMajorMinorVersion}-de
+v-merged";
+      paths =
+        lib.concatMap (p: [
+          (lib.getBin p)
+          (lib.getDev p)
+          (lib.getLib p)
+          (lib.getOutput "static" p) # Makes for a very fat closure
+        ])
+        cudaComponents;
+    };
+
   make = buildTests:
     stdenv.mkDerivation (finalAttrs: {
       name = "unified-runtime";
       inherit version;
 
-      nativeBuildInputs = [
-        cmake
-        ninja
-        python3
-        pkg-config
-      ];
+      nativeBuildInputs =
+        [
+          cmake
+          ninja
+          python3
+          pkg-config
+        ]
+        ++ lib.optionals cudaSupport [
+          #cudatoolkitDevMerged
+        ];
 
       buildInputs =
         [
@@ -89,7 +123,10 @@
           # rocmPackages.hsakmt
         ]
         ++ lib.optionals cudaSupport [
-          cudaPackages.cuda_cudart
+          #cudatoolkitDevMerged
+          #cudaPackages.cuda_cudart
+          #cudaPackages.cuda_nvcc
+          #cudaPackages.cuda_cccl
           autoAddDriverRunpath
         ]
         ++ lib.optionals levelZeroSupport [
@@ -142,8 +179,8 @@
       ];
 
       patches = [
-        ./llvm/unified-runtime.patch
-        ./llvm/unified-runtime-2.patch
+        #./llvm/unified-runtime.patch
+        #./llvm/unified-runtime-2.patch
       ];
 
       postPatch = ''
@@ -185,7 +222,7 @@
         ]
         ++ lib.optionals cudaSupport [
           # (lib.cmakeFeature "CUDA_TOOLKIT_ROOT_DIR" "${cudaPackages.cudatoolkit}")
-          (lib.cmakeFeature "CUDAToolkit_ROOT" "${lib.getDev cudaPackages.cuda_nvcc}")
+          (lib.cmakeFeature "CUDAToolkit_ROOT" "${cudatoolkitDevMerged}")
           # (lib.cmakeFeature "CUDAToolkit_INCLUDE_DIRS" "${cudaPackages.cudatoolkit}/include/")
           # (lib.cmakeFeature "CUDA_cuda_driver_LIBRARY" "${cudaPackages.cudatoolkit}/lib/")
         ]
