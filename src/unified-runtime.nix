@@ -19,7 +19,7 @@
   intel-compute-runtime,
   opencl-headers,
   ocl-icd,
-  hdr-histogram,
+  hdrhistogram_c,
   gtest,
   pkg-config,
   levelZeroSupport ? true,
@@ -111,7 +111,7 @@ v-merged";
           zlib
           libbacktrace
           hwloc
-          hdr-histogram # TODO: Make optional?
+          hdrhistogram_c
         ]
         ++ lib.optionals openclSupport [
           opencl-headers

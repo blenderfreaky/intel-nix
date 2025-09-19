@@ -12,11 +12,10 @@
   llvm = llvm-monolithic;
 
   unified-runtime = callPackage ./unified-runtime.nix {
-    inherit unified-memory-framework hdr-histogram;
+    inherit unified-memory-framework;
   };
   unified-memory-framework = callPackage ./unified-memory-framework.nix {inherit oneTBB;};
 
-  hdr-histogram = callPackage ./hdr-histogram.nix {};
   emhash = callPackage ./emhash.nix {};
   parallel-hashmap = callPackage ./parallel-hashmap.nix {};
 
