@@ -25,18 +25,17 @@
   spirv-headers,
   spirv-tools,
   fetchpatch,
-  # opencl-headers,
-  # emhash,
   perl,
   zlib,
   wrapCC,
   ctestCheckHook,
   rocmPackages ? {},
+  cudaPackages ? {},
   levelZeroSupport ? true,
   openclSupport ? true,
   # Broken
   cudaSupport ? false,
-  rocmSupport ? false,
+  rocmSupport ? true,
   rocmGpuTargets ? builtins.concatStringsSep ";" rocmPackages.clr.gpuTargets,
   nativeCpuSupport ? false,
   vulkanSupport ? true,
@@ -46,8 +45,8 @@
   buildDocs ? false,
   buildMan ? false,
 }: let
-  version = "unstable-2025-09-09";
-  date = "20250909";
+  version = "unstable-2025-09-16";
+  date = "20250916";
   llvmPackages = llvmPackages_21;
   stdenv =
     if useLibcxx
@@ -95,16 +94,16 @@ in
       owner = "intel";
       repo = "llvm";
       # tag = "v${version}";
-      rev = "61de220eccc56aa0f85e64f94d1fdd6383e186a1";
-      hash = "sha256-/Yd5w2dBFy+5OLECXJcmsjwRCN7aehOb7+C+QuiYSms=";
+      rev = "ad300977d6e6ffc3cb4c6dba9454c844d4db6d17";
+      hash = "sha256-MvfWkDJhp2D+407+VtT3EDIyr3/9IbRpmjzE70SbOYo=";
     };
 
-    # outputs = [
-    #   "out"
-    #   "lib"
-    #   "dev"
-    #   "python"
-    # ];
+    #outputs = [
+    #  "out"
+    #  "lib"
+    #  "dev"
+    #  "python"
+    #];
 
     nativeBuildInputs =
       [
@@ -156,7 +155,7 @@ in
       else null;
 
     checkFlags = lib.optionals buildTests [
-      "LIT_ARGS=--param clang=${ccWrapperStub}/bin/clang++ --param cxx=${ccWrapperStub}/bin/clang++"
+      "LIT_ARGS=--param CLANG=${ccWrapperStub}/bin/clang++"
     ];
 
     cmakeBuildType = "Release";
