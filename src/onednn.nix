@@ -29,12 +29,17 @@ in
 
     buildInputs = [
       oneTBB
-      ocl-icd
       llvm.openmp
       #llvm.merged
       opencl-headers
+      ocl-icd
       gcc
     ];
+
+    # propagatedBuildInputs = [
+    #   opencl-headers
+    #   ocl-icd
+    # ];
 
     # Fixup bad cmake paths
     postInstall = ''
