@@ -23,6 +23,13 @@
   vc-intrinsics = callPackage ./vc-intrinsics.nix {};
 
   oneMath-sycl-blas = callPackage ./onemath-sycl-blas.nix {inherit llvm;};
+
+  oneMath-sycl-blas-tuned = {
+    intel = oneMath-sycl-blas.override {gpuTarget = "INTEL_GPU";};
+    nvidia = oneMath-sycl-blas.override {gpuTarget = "NVIDIA_GPU";};
+    amd = oneMath-sycl-blas.override {gpuTarget = "AMD_GPU";};
+  };
+
   oneMath = callPackage ./onemath.nix {
     inherit llvm oneMath-sycl-blas oneTBB;
   };

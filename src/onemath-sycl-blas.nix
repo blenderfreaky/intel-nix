@@ -9,15 +9,16 @@
 }:
 llvm.stdenv.mkDerivation (finalAttrs: {
   # TODO: Figure out how to name this for nix
-  pname = "onemath-sycl-blas";
-  # TODO: Open issue for tagged releases; oneMath currently uses FetchContent to pull `main` which is irreproducible
-  version = "todo";
+  pname = "oneMath-sycl-blas";
+  version = "unstable-2025-08-04";
 
   src = fetchFromGitHub {
     owner = "uxlfoundation";
     repo = "generic-sycl-components";
-    rev = "aa3d4c6791639df9c3112db143ab1caa7fa4f605";
-    hash = "sha256-ezw0UBcrHEgzBO6VF9kCJHyw3qyltspi80RucNpexLM=";
+    # There are currently no tagged releases, tracking issue:
+    # https://github.com/uxlfoundation/generic-sycl-components/issues/16
+    rev = "99241128f64b700392e4cfdd047caada024bf7dd";
+    hash = "sha256-JIyWclCJVqrllP5zYFv8T9wurCLixAetLVzQYt27pGY=";
   };
 
   nativeBuildInputs = [
