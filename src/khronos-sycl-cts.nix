@@ -4,19 +4,22 @@
   mkDerivation,
   python3,
   cmake,
+  opencl-headers,
+  ocl-icd,
   ninja,
+  procps,
   rocmPackages ? {},
-  target ? "intel",
+  target ? "amd",
 }:
-mkDerivation {
+mkDerivation (finalAttrs: {
   pname = "khronos-sycl-cts";
-  version = "todo";
+  version = "unstable-2025-09-19";
 
   src = fetchFromGitHub {
     owner = "KhronosGroup";
     repo = "SYCL-CTS";
-    rev = "ea1d62ba042079bca045b47ec30c06863f899a1a";
-    hash = "sha256-KrRpkqfoF2CvIneE0l4Km9RHdqMU3Zf47W2QI72UwRQ=";
+    rev = "71ebbc15e07310d8ae4b0db7cfb871d9a7207c82";
+    hash = "sha256-AqkFglhuOGhSY7jRb1ufOvQLIggKpj6j9LweEif5Rec=";
     fetchSubmodules = true;
   };
 
@@ -25,6 +28,8 @@ mkDerivation {
     cmake
     ninja
   ];
+
+  buildInputs = [opencl-headers ocl-icd];
 
   # hardeningDisable = [
   #   "zerocallusedregs"
@@ -38,25 +43,48 @@ mkDerivation {
     [
       # TODO: Make parameter
       (lib.cmakeFeature "SYCL_IMPLEMENTATION" "DPCPP")
+      (lib.cmakeFeature "SYCL_CTS_EXCLUDE_TEST_CATEGORIES" "/build/disabled_categories")
     ]
     ++ lib.optional (target == "amd") (lib.cmakeFeature "DPCPP_TARGET_TRIPLES" "amdgcn-amd-amdhsa");
 
   # We need to set this via the shell because it contains spaces
-  preConfigure = lib.optionalString (target == "amd") ''
-    cmakeFlagsArray+=(
-      "-DDPCPP_FLAGS=-Xsycl-target-backend;--offload-arch=gfx1030;--rocm-path=${rocmPackages.clr};--rocm-device-lib-path=${rocmPackages.rocm-device-libs}/amdgcn/bitcode"
-    )
-  '';
+  preConfigure =
+    ''
+      touch /build/disabled_categories
+    ''
+    + (lib.optionalString (target == "amd") ''
+      cmakeFlagsArray+=(
+        "-DDPCPP_FLAGS=-Xsycl-target-backend=amdgcn-amd-amdhsa;--offload-arch=gfx1030;--rocm-path=${rocmPackages.clr};--rocm-device-lib-path=${rocmPackages.rocm-device-libs}/amdgcn/bitcode"
+      )
+
+      #echo << EOF > /build/disabled_categories
+      #atomic_ref
+      #EOF
+    '');
 
   installPhase = ''
     runHook preInstall
 
-    ls
-    pwd
-    ls *
     mkdir -p $out/bin
     cp -r bin/* $out/bin
 
     runHook postInstall
   '';
-}
+
+  passthru = {
+    generate_exclude_filter = finalAttrs.finalPackage.overrideAttrs (old: {
+    nativeBuildInputs = old.nativeBuildInputs ++ [ procps ];
+      buildPhase = ''
+        runHook preBuild
+
+        cd ..
+        mkdir $out
+        python ci/generate_exclude_filter.py --cmake-args "$cmakeFlags" --output $out/generated.filter --verbose DPCPP
+
+        runHook postBuild
+      '';
+
+      dontInstall = true;
+    });
+  };
+})
