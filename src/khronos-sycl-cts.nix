@@ -57,9 +57,11 @@ mkDerivation (finalAttrs: {
         "-DDPCPP_FLAGS=-Xsycl-target-backend=amdgcn-amd-amdhsa;--offload-arch=gfx1030;--rocm-path=${rocmPackages.clr};--rocm-device-lib-path=${rocmPackages.rocm-device-libs}/amdgcn/bitcode"
       )
 
-      #echo << EOF > /build/disabled_categories
-      #atomic_ref
-      #EOF
+      cat << EOF > /build/disabled_categories
+      atomic_ref
+      EOF
+      # echo /build/disabled_categories
+      # exit 1
     '');
 
   installPhase = ''
@@ -77,6 +79,7 @@ mkDerivation (finalAttrs: {
       buildPhase = ''
         runHook preBuild
 
+        #cd /build/${finalAttrs.src.name}
         cd ..
         mkdir $out
         python ci/generate_exclude_filter.py --cmake-args "$cmakeFlags" --output $out/generated.filter --verbose DPCPP
@@ -84,6 +87,7 @@ mkDerivation (finalAttrs: {
         runHook postBuild
       '';
 
+      #dontConfigure = true;
       dontInstall = true;
     });
   };
