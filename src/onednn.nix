@@ -9,7 +9,7 @@
   gcc,
   lib,
 }: let
-  version = "3.8.1";
+  version = "3.9.1";
 in
   llvm.stdenv.mkDerivation {
     pname = "onednn";
@@ -19,7 +19,7 @@ in
       owner = "uxlfoundation";
       repo = "oneDNN";
       tag = "v${version}";
-      hash = "sha256-x4leRd0xPFUygjAv/D125CIXn7lYSyzUKsd9IDh/vCc=";
+      hash = "sha256-DbLW22LgG8wrBNMsxoUGlacHLcfIBwqyiv+HOmFDtxc=";
     };
 
     nativeBuildInputs = [
