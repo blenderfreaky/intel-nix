@@ -29,11 +29,11 @@ DOWNLOAD_PAGE_URL=""
 case "$KIT_NAME" in
   base)
     DOWNLOAD_PAGE_URL='https://www.intel.com/content/www/us/en/developer/tools/oneapi/base-toolkit-download.html?packages=oneapi-toolkit&oneapi-toolkit-os=linux&oneapi-lin=offline'
-    TARGET_FILE="$nixpkgs/toolkits/base.nix"
+    TARGET_FILE="$nixpkgs/toolkits/installer/base.nix"
     ;;
   hpc)
     DOWNLOAD_PAGE_URL='https://www.intel.com/content/www/us/en/developer/tools/oneapi/hpc-toolkit-download.html?packages=hpc-toolkit&hpc-toolkit-os=linux&hpc-toolkit-lin=offline'
-    TARGET_FILE="$nixpkgs/toolkits/hpc.nix"
+    TARGET_FILE="$nixpkgs/toolkits/installer/hpc.nix"
     ;;
   *)
     echo "Error: Invalid argument '$KIT_NAME'. Please use 'base' or 'hpc'." >&2
