@@ -1,7 +1,7 @@
 {base}:
 base.makeKit {
   kit = "hpc";
-  version = "2025.2.0.575";
-  uuid = "e974de81-57b7-4ac1-b039-0512f8df974e";
-  sha256 = "sha256-xu00FBbRgyVE7kWOI29Kt2l58ZTs7E90vYMTV9d7LX4=";
+  version = "2025.2.1.44";
+  uuid = "2d2a6686-ff06-44ce-baf0-ab84f8dafa89";
+  sha256 = "sha256-SC0eDu4TGf9bZB8aAX4AnIvguTpP0afOj9JqA63QSPs=";
 }
