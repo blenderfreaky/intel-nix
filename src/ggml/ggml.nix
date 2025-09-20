@@ -13,14 +13,14 @@
 }:
 llvm.stdenv.mkDerivation {
   pname = "ggml";
-  version = "todo";
+  version = "unstable-2025-09-16";
 
   src = fetchFromGitHub {
     owner = "ggml-org";
     repo = "ggml";
     # tag = "heads/sync-llama.cpp-25-06-01";
-    rev = "d0f7473c";
-    hash = "sha256-IJaT+2MhBUo7TjzNJaUZyeL1aQ/p1lwTZpiiH14s+qA=";
+    rev = "978f6e1993f2eeb4e99b63d4e70b4401c0a2dae2";
+    hash = "sha256-y+5oyzn4XENMqWWuDVEN8TELYBcJJbA545gwi+82fb4=";
   };
 
   nativeBuildInputs = [

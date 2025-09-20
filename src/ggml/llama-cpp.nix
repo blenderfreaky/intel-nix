@@ -10,8 +10,9 @@
   git,
   opencl-headers,
   ocl-icd,
+  curl,
 }: let
-  version = "b6089";
+  version = "b6524";
 in
   llvm.stdenv.mkDerivation {
     pname = "llama-cpp";
@@ -20,8 +21,8 @@ in
     src = fetchFromGitHub {
       owner = "ggml-org";
       repo = "llama.cpp";
-      tag = "b6089";
-      hash = "sha256-rNJpXydIdOtVdbtN0A8XCgcR2+s8JP5IznEp34gy68s=";
+      tag = "${version}";
+      hash = "sha256-zxWjSwB1ueHLAhFDAW49k5V6vv2MvUz+CkK9/mxdfrI=";
     };
 
     nativeBuildInputs = [
@@ -37,6 +38,7 @@ in
       mkl
       opencl-headers
       ocl-icd
+      curl
     ];
 
     hardeningDisable = [
