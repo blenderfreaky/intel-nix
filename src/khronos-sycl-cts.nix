@@ -9,7 +9,7 @@
   ninja,
   procps,
   rocmPackages ? {},
-  target ? "amd",
+  target ? "intel",
 }:
 mkDerivation (finalAttrs: {
   pname = "khronos-sycl-cts";
@@ -75,7 +75,7 @@ mkDerivation (finalAttrs: {
 
   passthru = {
     generate_exclude_filter = finalAttrs.finalPackage.overrideAttrs (old: {
-    nativeBuildInputs = old.nativeBuildInputs ++ [ procps ];
+      nativeBuildInputs = old.nativeBuildInputs ++ [procps];
       buildPhase = ''
         runHook preBuild
 
