@@ -1,0 +1,14 @@
+diff --git a/GenXIntrinsics/cmake/utils.cmake b/GenXIntrinsics/cmake/utils.cmake
+index a1b2c3d4..e5f6g7h8 100644
+--- a/GenXIntrinsics/cmake/utils.cmake
++++ b/GenXIntrinsics/cmake/utils.cmake
+@@ -30,9 +30,6 @@ function(vc_get_llvm_targets RET)
+   # Expand rest of components names to target names.
+   llvm_map_components_to_libnames(TARGETS ${TARGETS})
+
+-  if (LLVM_LINK_LLVM_DYLIB)
+-    set(TARGETS ${TARGETS} LLVM)
+-  endif()
+-
+   set(${RET} ${TARGETS} PARENT_SCOPE)
+ endfunction()
