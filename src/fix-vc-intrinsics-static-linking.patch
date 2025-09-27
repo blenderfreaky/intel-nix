@@ -1,14 +1,33 @@
+From 076f38ed8be6c11cbf4cadff33a5b6bd6fd51198 Mon Sep 17 00:00:00 2001
+From: blenderfreaky <blenderfreaky@mailbox.org>
+Date: Wed, 24 Sep 2025 00:21:50 +0200
+Subject: [PATCH] fix static linking preserve components
+
+---
+ utils.cmake | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
 diff --git a/GenXIntrinsics/cmake/utils.cmake b/GenXIntrinsics/cmake/utils.cmake
-index a1b2c3d4..e5f6g7h8 100644
+index 2adb09d..e5190bc 100644
 --- a/GenXIntrinsics/cmake/utils.cmake
 +++ b/GenXIntrinsics/cmake/utils.cmake
-@@ -30,9 +30,6 @@ function(vc_get_llvm_targets RET)
+@@ -15,7 +15,7 @@
+ function(vc_get_llvm_targets RET)
+   set(TARGETS ${ARGN})
+
+-  if (LLVM_LINK_LLVM_DYLIB)
++  if (FALSE)
+     # Drop all components, though it is probably not right
+     # and llvm_map_components_to_libnames should be used as filter.
+     # However, in external build it returns empty list for "all"
+@@ -30,7 +30,7 @@ function(vc_get_llvm_targets RET)
    # Expand rest of components names to target names.
    llvm_map_components_to_libnames(TARGETS ${TARGETS})
 
 -  if (LLVM_LINK_LLVM_DYLIB)
--    set(TARGETS ${TARGETS} LLVM)
--  endif()
--
-   set(${RET} ${TARGETS} PARENT_SCOPE)
- endfunction()
++  if (FALSE)
+     # Skip adding LLVM dylib for static builds
+   endif()
+
+--
+2.51.0

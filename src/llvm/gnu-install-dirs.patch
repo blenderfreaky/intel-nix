@@ -1,4 +1,4 @@
-commit ea3ad35e14897e7cd6ef713569dbe988f28a7149
+commit b74ffe6774eca415cf1c02a8ba526b3e7a880502
 Author: blenderfreaky <blenderfreaky@mailbox.org>
 Date:   Fri Sep 26 23:17:11 2025 +0200
 
@@ -316,7 +316,7 @@ index 0584254dc0bd..6735b8c92a95 100644
    # Once we add more modules, we should handle this more automatically.
    if (DEFINED LLVM_OVERRIDE_MODEL_HEADER_INLINERSIZEMODEL)
 diff --git a/llvm/cmake/modules/AddLLVM.cmake b/llvm/cmake/modules/AddLLVM.cmake
-index 83772ed8d2b1..4e429cb13309 100644
+index 83772ed8d2b1..8c9758b23b2a 100644
 --- a/llvm/cmake/modules/AddLLVM.cmake
 +++ b/llvm/cmake/modules/AddLLVM.cmake
 @@ -974,8 +974,8 @@ macro(add_llvm_library name)
@@ -344,7 +344,7 @@ index 83772ed8d2b1..4e429cb13309 100644
    if (APPLE)
      set(_install_name_dir INSTALL_NAME_DIR "@rpath")
 -    set(_install_rpath "@loader_path/../lib${LLVM_LIBDIR_SUFFIX}" ${extra_libdir})
-+    set(_install_rpath "@loader_path/../${CMAKE_INSTALL_LIBDIR}" ${extra_libdir})
++    set(_install_rpath "${CMAKE_INSTALL_FULL_LIBDIR}" ${extra_libdir})
    elseif(${CMAKE_SYSTEM_NAME} MATCHES "AIX" AND BUILD_SHARED_LIBS)
      # $ORIGIN is not interpreted at link time by aix ld.
      # Since BUILD_SHARED_LIBS is only recommended for use by developers,
@@ -355,8 +355,8 @@ index 83772ed8d2b1..4e429cb13309 100644
    elseif(UNIX)
 -    set(_build_rpath "\$ORIGIN/../lib${LLVM_LIBDIR_SUFFIX}" ${extra_libdir})
 -    set(_install_rpath "\$ORIGIN/../lib${LLVM_LIBDIR_SUFFIX}")
-+    set(_build_rpath "\$ORIGIN/../${CMAKE_INSTALL_LIBDIR}" ${extra_libdir})
-+    set(_install_rpath "\$ORIGIN/../${CMAKE_INSTALL_LIBDIR}")
++    set(_build_rpath "${CMAKE_INSTALL_FULL_LIBDIR}" ${extra_libdir})
++    set(_install_rpath "${CMAKE_INSTALL_FULL_LIBDIR}")
      if(${CMAKE_SYSTEM_NAME} MATCHES "(FreeBSD|DragonFly)")
        set_property(TARGET ${name} APPEND_STRING PROPERTY
                     LINK_FLAGS " -Wl,-z,origin ")
@@ -411,31 +411,27 @@ index 8046bca2b1a4..997bd51e2b10 100644
 -install(FILES Interpreter.h DESTINATION include/llvm/ExecutionEngine/Interpreter)
 +install(FILES Interpreter.h DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/llvm/ExecutionEngine/Interpreter)
 diff --git a/llvm/tools/llvm-config/BuildVariables.inc.in b/llvm/tools/llvm-config/BuildVariables.inc.in
-index e4e1d449bf4d..3aab6ea7bf8b 100644
+index e4e1d449bf4d..890e1f164d97 100644
 --- a/llvm/tools/llvm-config/BuildVariables.inc.in
 +++ b/llvm/tools/llvm-config/BuildVariables.inc.in
 @@ -23,6 +23,7 @@
  #define LLVM_CXXFLAGS "@LLVM_CXXFLAGS@"
  #define LLVM_BUILDMODE "@LLVM_BUILDMODE@"
  #define LLVM_LIBDIR_SUFFIX "@LLVM_LIBDIR_SUFFIX@"
-+#define LLVM_INSTALL_LIBDIR "@CMAKE_INSTALL_LIBDIR@"
++#define LLVM_INSTALL_FULL_LIBDIR "@CMAKE_INSTALL_FULL_LIBDIR@"
  #define LLVM_INSTALL_INCLUDEDIR "@CMAKE_INSTALL_INCLUDEDIR@"
  #define LLVM_INSTALL_PACKAGE_DIR "@LLVM_INSTALL_PACKAGE_DIR@"
  #define LLVM_TARGETS_BUILT "@LLVM_TARGETS_BUILT@"
 diff --git a/llvm/tools/llvm-config/llvm-config.cpp b/llvm/tools/llvm-config/llvm-config.cpp
-index 49df8fdcb7f7..c7cb05b82821 100644
+index 49df8fdcb7f7..06c6fdf37209 100644
 --- a/llvm/tools/llvm-config/llvm-config.cpp
 +++ b/llvm/tools/llvm-config/llvm-config.cpp
-@@ -365,7 +365,11 @@ int main(int argc, char **argv) {
+@@ -365,7 +365,7 @@ int main(int argc, char **argv) {
        sys::fs::make_absolute(ActivePrefix, Path);
        ActiveBinDir = std::string(Path);
      }
 -    ActiveLibDir = ActivePrefix + "/lib" + LLVM_LIBDIR_SUFFIX;
-+    {
-+      SmallString<256> Path(LLVM_INSTALL_LIBDIR LLVM_LIBDIR_SUFFIX);
-+      sys::fs::make_absolute(ActivePrefix, Path);
-+      ActiveLibDir = std::string(Path);
-+    }
++    ActiveLibDir = LLVM_INSTALL_FULL_LIBDIR;
      {
        SmallString<256> Path(LLVM_INSTALL_PACKAGE_DIR);
        sys::fs::make_absolute(ActivePrefix, Path);
@@ -461,7 +457,7 @@ index ff4269ed7acd..2d25a9f462c8 100644
  
    if (NOT LLVM_ENABLE_IDE)
 diff --git a/mlir/cmake/modules/AddMLIRPython.cmake b/mlir/cmake/modules/AddMLIRPython.cmake
-index c14e614ed7d9..22f41fac3c6e 100644
+index c14e614ed7d9..e3f8d9ef5a61 100644
 --- a/mlir/cmake/modules/AddMLIRPython.cmake
 +++ b/mlir/cmake/modules/AddMLIRPython.cmake
 @@ -455,7 +455,7 @@ function(mlir_python_setup_extension_rpath target)
@@ -469,7 +465,7 @@ index c14e614ed7d9..22f41fac3c6e 100644
        BUILD_RPATH "${_real_lib_dir}")
      set_property(TARGET ${target} APPEND PROPERTY
 -      INSTALL_RPATH "${_origin_prefix}/${ARG_RELATIVE_INSTALL_ROOT}/lib${LLVM_LIBDIR_SUFFIX}")
-+      INSTALL_RPATH "${_origin_prefix}/${ARG_RELATIVE_INSTALL_ROOT}/${CMAKE_INSTALL_LIBDIR}")
++      INSTALL_RPATH "${CMAKE_INSTALL_FULL_LIBDIR}")
    endif()
  endfunction()
  

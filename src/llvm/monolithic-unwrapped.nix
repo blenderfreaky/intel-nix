@@ -13,6 +13,7 @@
   # Rather than duplicating the flags, we can simply use the existing flags.
   # We can also use this to debug unified-runtime without building the entire LLVM project.
   unified-runtime,
+  vc-intrinsics,
   emhash,
   sphinx,
   doxygen,
@@ -46,8 +47,8 @@
   buildDocs ? false,
   buildMan ? false,
 }: let
-  version = "unstable-2025-09-16";
-  date = "20250916";
+  version = "unstable-2025-09-25";
+  date = "20250925";
   llvmPackages = llvmPackages_21;
   stdenv =
     if useLibcxx
@@ -87,7 +88,7 @@
     }
   );
 in
-  stdenv.mkDerivation {
+  stdenv.mkDerivation (finalAttrs: {
     pname = "intel-llvm";
     inherit version;
 
@@ -95,16 +96,16 @@ in
       owner = "intel";
       repo = "llvm";
       # tag = "v${version}";
-      rev = "ad300977d6e6ffc3cb4c6dba9454c844d4db6d17";
-      hash = "sha256-MvfWkDJhp2D+407+VtT3EDIyr3/9IbRpmjzE70SbOYo=";
+      rev = "611e24571eab5d0bebeea859200484e68ba910ff";
+      hash = "sha256-0dmZo1lUG4/k96zKmHNqZd8uYz4sW23gznx8LtDsCOU=";
     };
 
     outputs = [
       "out"
       "lib"
       "dev"
-    #  "python"
-    "share"
+      #  "python"
+      #"share"
     ];
 
     nativeBuildInputs =
@@ -114,6 +115,7 @@ in
         python3
         pkg-config
         zlib
+        zstd
       ]
       ++ lib.optionals useLld [
         llvmPackages.bintools
@@ -132,6 +134,7 @@ in
         hwloc
         emhash
         parallel-hashmap
+        #vc-intrinsics
       ]
       # ++ lib.optionals useLibcxx [
       #   llvmPackages.libcxx
@@ -163,11 +166,13 @@ in
     cmakeBuildType = "Release";
 
     patches = [
-      (fetchpatch {
-        name = "make-sycl-version-reproducible";
-        url = "https://github.com/intel/llvm/commit/1c22570828e24a628c399aae09ce15ad82b924c6.patch";
-        hash = "sha256-leBTUmanYaeoNbmA0m9VFX/5ViACuXidWUhohewshQQ=";
-      })
+      #(fetchpatch {
+      #  name = "make-sycl-version-reproducible";
+      #  url = "https://github.com/intel/llvm/commit/1c22570828e24a628c399aae09ce15ad82b924c6.patch";
+      #  hash = "sha256-leBTUmanYaeoNbmA0m9VFX/5ViACuXidWUhohewshQQ=";
+      #})
+      #./gnu-install-dirs.patch
+      #./gnu-install-dirs-2.patch
     ];
 
     postPatch = ''
@@ -242,35 +247,32 @@ in
       [
         # (lib.cmakeFeature "LLVM_TARGETS_TO_BUILD" (lib.concatStringsSep ";" llvmTargetsToBuild'))
         # (lib.cmakeFeature "LLVM_ENABLE_PROJECTS" (lib.concatStringsSep ";" llvmProjectsToBuild))
-        (lib.cmakeFeature "LLVM_HOST_TRIPLE" stdenv.hostPlatform.config)
-        (lib.cmakeFeature "LLVM_DEFAULT_TARGET_TRIPLE" stdenv.hostPlatform.config)
+        #(lib.cmakeFeature "LLVM_HOST_TRIPLE" stdenv.hostPlatform.config)
+        #(lib.cmakeFeature "LLVM_DEFAULT_TARGET_TRIPLE" stdenv.hostPlatform.config)
         (lib.cmakeBool "LLVM_INSTALL_UTILS" true)
         (lib.cmakeBool "LLVM_INCLUDE_DOCS" (buildDocs || buildMan))
         (lib.cmakeBool "MLIR_INCLUDE_DOCS" (buildDocs || buildMan))
         (lib.cmakeBool "LLVM_BUILD_DOCS" (buildDocs || buildMan))
-        # # Way too slow, only uses one core
-        # # (lib.cmakeBool "LLVM_ENABLE_DOXYGEN" (buildDocs || buildMan))
         (lib.cmakeBool "LLVM_ENABLE_SPHINX" (buildDocs || buildMan))
         (lib.cmakeBool "SPHINX_OUTPUT_HTML" buildDocs)
         (lib.cmakeBool "SPHINX_OUTPUT_MAN" buildMan)
-        # (lib.cmakeBool "SPHINX_WARNINGS_AS_ERRORS" false)
         (lib.cmakeBool "LLVM_BUILD_TESTS" buildTests)
         (lib.cmakeBool "LLVM_INCLUDE_TESTS" buildTests)
         (lib.cmakeBool "MLIR_INCLUDE_TESTS" buildTests)
         (lib.cmakeBool "SYCL_INCLUDE_TESTS" buildTests)
 
         "-DCMAKE_BUILD_TYPE=Release"
-        # "-DLLVM_ENABLE_ZSTD=FORCE_ON"
+        #"-DLLVM_ENABLE_ZSTD=FORCE_ON"
         # TODO
-        # "-DLLVM_ENABLE_ZLIB=FORCE_ON"
+        "-DLLVM_ENABLE_ZLIB=FORCE_ON"
         "-DLLVM_ENABLE_THREADS=ON"
         # Breaks tablegen build somehow
         # "-DLLVM_ENABLE_LTO=Thin"
-        # "-DLLVM_USE_STATIC_ZSTD=OFF"
+        "-DLLVM_USE_STATIC_ZSTD=OFF"
 
+        # Having these set to true breaks the build
+        # See https://github.com/intel/llvm/issues/19060
         (lib.cmakeBool "BUILD_SHARED_LIBS" false)
-        # # TODO: configure fails when these are true, but I've no idea why
-        # NOTE: Fails with buildbot/configure.py as well when these are set
         (lib.cmakeBool "LLVM_LINK_LLVM_DYLIB" false)
         (lib.cmakeBool "LLVM_BUILD_LLVM_DYLIB" false)
 
@@ -290,14 +292,10 @@ in
 
         (lib.cmakeFeature "LLVM_EXTERNAL_SPIRV_HEADERS_SOURCE_DIR" "${spirv-headers.src}")
 
-        # # These can be switched over to nixpkgs versions once they're updated
-        # # See: https://github.com/NixOS/nixpkgs/pull/428558
-        # (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_OCL-HEADERS" "${deps.opencl-headers}")
-        # (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_OCL-ICD" "${deps.opencl-icd-loader}")
-
-        # It needs the actual code of oneAPI-construction-kit here, and we cannot link
-        # against it instead of vendoring it
-        (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_ONEAPI-CK" "${deps.oneapi-ck}")
+        #"-DCMAKE_INSTALL_LIBDIR=${placeholder "out"}/lib"
+        #"-DCMAKE_INSTALL_LIBEXECDIR=${placeholder "out"}/libexec"
+        #"-DCMAKE_INSTALL_INCLUDEDIR=${placeholder "out"}/include"
+        #"-DCMAKE_INSTALL_BINDIR=${placeholder "out"}/bin"
       ]
       # ++ lib.optional useLld (lib.cmakeFeature "LLVM_USE_LINKER" "lld")
       ++ unified-runtime'.cmakeFlags;
@@ -314,15 +312,63 @@ in
 
     doCheck = true;
 
+    #installPhase = ''
+    #  mkdir $out
+    #  mv /build/source $out
+    #  exit 0
+    #'';
+
+    passthru.split = stdenv.mkDerivation {
+      pname = "llvm-split";
+      inherit (finalAttrs) version;
+
+      nativeBuildInputs = [
+        cmake
+        ninja
+      ];
+      #src =finalAttrs.finalPackage.outPath;
+      dontUnpack = true;
+
+      preInstall = ''
+        cp -r ${finalAttrs.finalPackage}/source /build/source
+        chmod -R u+w /build/source
+        pwd
+        ls
+        echo ====
+        ls *
+          cd /build/source/build
+          pwd
+          ls
+      '';
+
+      cmakeDir = "/build/source/llvm";
+
+      outputs = ["out" "dev" "lib"];
+      dontBuild = true;
+      dontConfigure = true;
+      #installPhase = ''
+      #
+      #   '';
+    };
+
+    #fixupPhase = ''
+    #mkdir $dev
+    #cp -a $out/include $dev/ && rm -rf $out/include
+    #mkdir $lib
+    #mv $out/lib $lib/ && rm -rf $out/lib
+    #mv $out/libexec $lib/ && rm -rf $out/libexec
+    #'';
+    #postFixup = ''
+    #'';
     preFixup =
-       ''
-         ${tree}/bin/tree $out
-         ${tree}/bin/tree $dev
-         ${tree}/bin/tree $lib
+      #''
+      #   ${tree}/bin/tree $out
+      #   ${tree}/bin/tree $dev
+      #   ${tree}/bin/tree $lib
       #   ${tree}/bin/tree $python
-         ${tree}/bin/tree $share
-       ''
-       +
+      #   ${tree}/bin/tree $share
+      # ''
+      # +
       lib.optionalString false ''
         # Phase 1: Move all development files from the main ($out) package to the
         # development ($dev) package. This includes headers, static libraries,
@@ -416,4 +462,4 @@ in
       # Intels compiler is based on
       baseLlvm = llvmPackages_21;
     };
-  }
+  })
