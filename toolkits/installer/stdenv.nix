@@ -2,12 +2,10 @@
   kit,
   stdenv,
   overrideCC,
-  runCommand,
-}:
-overrideCC stdenv runCommand {
-  name = "intel-todo";
-  installPhase = ''
-    # TODO: Use .version or similar
-    ln -s ${kit}/2025.2 $out
-  '';
-}
+  callPackage,
+}: let
+  # Get the wrapped Intel compiler from wrapper.nix
+  wrappedKit = callPackage ./wrapper.nix {inherit kit;};
+in
+  # Create a stdenv that uses Intel compilers
+  overrideCC stdenv wrappedKit.cc
