@@ -1,6 +1,6 @@
 {
   lib,
-  # stdenv,
+  stdenv,
   fetchFromGitHub,
   cmake,
   ninja,
@@ -28,6 +28,7 @@
   fetchpatch,
   perl,
   zlib,
+  ccacheStdenv,
   tree,
   wrapCC,
   ctestCheckHook,
@@ -50,10 +51,13 @@
   version = "unstable-2025-09-25";
   date = "20250925";
   llvmPackages = llvmPackages_21;
-  stdenv =
-    if useLibcxx
-    then llvmPackages.libcxxStdenv
-    else llvmPackages.stdenv;
+  # stdenv' =
+  #   if useLibcxx
+  #   then llvmPackages.libcxxStdenv
+  #   else llvmPackages.stdenv;
+  # stdenv = stdenv';
+  # stdenv = ccacheStdenv.override {stdenv = stdenv';};
+  # stdenv = ccacheStdenv;
   deps = callPackage ./deps.nix {};
   unified-runtime' = unified-runtime.override {
     inherit
@@ -104,8 +108,7 @@ in
       "out"
       "lib"
       "dev"
-      #  "python"
-      #"share"
+      "python"
     ];
 
     nativeBuildInputs =
@@ -143,6 +146,7 @@ in
       ++ unified-runtime'.buildInputs;
 
     # separateDebugInfo = true;
+    # dontFixup = true;
 
     propagatedBuildInputs = [
       zstd
@@ -171,7 +175,7 @@ in
       #  url = "https://github.com/intel/llvm/commit/1c22570828e24a628c399aae09ce15ad82b924c6.patch";
       #  hash = "sha256-leBTUmanYaeoNbmA0m9VFX/5ViACuXidWUhohewshQQ=";
       #})
-      #./gnu-install-dirs.patch
+      ./gnu-install-dirs.patch
       #./gnu-install-dirs-2.patch
     ];
 
@@ -261,7 +265,6 @@ in
         (lib.cmakeBool "MLIR_INCLUDE_TESTS" buildTests)
         (lib.cmakeBool "SYCL_INCLUDE_TESTS" buildTests)
 
-        "-DCMAKE_BUILD_TYPE=Release"
         #"-DLLVM_ENABLE_ZSTD=FORCE_ON"
         # TODO
         "-DLLVM_ENABLE_ZLIB=FORCE_ON"
@@ -296,6 +299,12 @@ in
         #"-DCMAKE_INSTALL_LIBEXECDIR=${placeholder "out"}/libexec"
         #"-DCMAKE_INSTALL_INCLUDEDIR=${placeholder "out"}/include"
         #"-DCMAKE_INSTALL_BINDIR=${placeholder "out"}/bin"
+
+        # Override clang resource directory to use build-time path during build
+        "-DCLANG_RESOURCE_DIR=lib/clang/21"
+
+        # Direct CMake files to dev output (following nixpkgs pattern)
+        (lib.cmakeFeature "LLVM_INSTALL_PACKAGE_DIR" "${placeholder "dev"}/lib/cmake/llvm")
       ]
       # ++ lib.optional useLld (lib.cmakeFeature "LLVM_USE_LINKER" "lld")
       ++ unified-runtime'.cmakeFlags;
@@ -443,6 +452,21 @@ in
         fi
       '';
 
+    # Copied from the regular LLVM derivation:
+    #  pkgs/development/compilers/llvm/common/llvm/default.nix
+    postInstall = ''
+      mkdir -p $python/share
+      mv $out/share/opt-viewer $python/share/opt-viewer
+
+      # If this stays in $out/bin, it'll create a circular reference
+      moveToOutput "bin/llvm-config*" "$dev"
+
+      substituteInPlace "$dev/lib/cmake/llvm/LLVMExports-${lib.toLower finalAttrs.finalPackage.cmakeBuildType}.cmake" \
+        --replace-fail "$out/bin/llvm-config" "$dev/bin/llvm-config"
+      substituteInPlace "$dev/lib/cmake/llvm/LLVMConfig.cmake" \
+        --replace-fail 'set(LLVM_BINARY_DIR "''${LLVM_INSTALL_PREFIX}")' 'set(LLVM_BINARY_DIR "'"$lib"'")'
+    '';
+
     meta = with lib; {
       description = "Intel LLVM-based compiler with SYCL support";
       longDescription = ''
@@ -451,7 +475,7 @@ in
       '';
       homepage = "https://github.com/intel/llvm";
       # TODO: Apache with LLVM exceptions
-      # license = with licenses; [ ncsa ];
+      license = with licenses; [ncsa asl20 llvm-exception];
       maintainers = with maintainers; [blenderfreaky];
       platforms = platforms.linux;
     };

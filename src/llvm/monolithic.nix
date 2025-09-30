@@ -6,6 +6,7 @@
   unified-runtime,
   emhash,
   vc-intrinsics,
+  ccacheStdenv,
 }: let
   llvm-unwrapped = callPackage ./monolithic-unwrapped.nix {inherit unified-runtime emhash vc-intrinsics;};
   llvm-wrapper = wrapCC llvm-unwrapped;
@@ -16,6 +17,8 @@
     paths = [
       llvm-wrapper
       llvm-unwrapped
+      llvm-unwrapped.dev
+      llvm-unwrapped.lib
     ];
 
     passthru =
@@ -27,5 +30,7 @@
       };
   };
   stdenv = overrideCC llvm-unwrapped.baseLlvm.stdenv llvm;
+  #stdenv' = overrideCC llvm-unwrapped.baseLlvm.stdenv llvm;
+  #stdenv = ccacheStdenv.override {stdenv = stdenv';};
 in
   llvm
