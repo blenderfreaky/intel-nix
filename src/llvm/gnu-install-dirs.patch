@@ -1,4 +1,4 @@
-commit b74ffe6774eca415cf1c02a8ba526b3e7a880502
+commit a64c277cfcac33171cd99f3d9e2c59f8a0edfaef
 Author: blenderfreaky <blenderfreaky@mailbox.org>
 Date:   Fri Sep 26 23:17:11 2025 +0200
 
@@ -316,7 +316,7 @@ index 0584254dc0bd..6735b8c92a95 100644
    # Once we add more modules, we should handle this more automatically.
    if (DEFINED LLVM_OVERRIDE_MODEL_HEADER_INLINERSIZEMODEL)
 diff --git a/llvm/cmake/modules/AddLLVM.cmake b/llvm/cmake/modules/AddLLVM.cmake
-index 83772ed8d2b1..8c9758b23b2a 100644
+index 83772ed8d2b1..5a687e2222fc 100644
 --- a/llvm/cmake/modules/AddLLVM.cmake
 +++ b/llvm/cmake/modules/AddLLVM.cmake
 @@ -974,8 +974,8 @@ macro(add_llvm_library name)
@@ -353,9 +353,8 @@ index 83772ed8d2b1..8c9758b23b2a 100644
 -    set(_install_rpath "${LLVM_LIBRARY_OUTPUT_INTDIR}" "${CMAKE_INSTALL_PREFIX}/lib${LLVM_LIBDIR_SUFFIX}" ${extra_libdir})
 +    set(_install_rpath "${LLVM_LIBRARY_OUTPUT_INTDIR}" "${CMAKE_INSTALL_FULL_LIBDIR}" ${extra_libdir})
    elseif(UNIX)
--    set(_build_rpath "\$ORIGIN/../lib${LLVM_LIBDIR_SUFFIX}" ${extra_libdir})
+     set(_build_rpath "\$ORIGIN/../lib${LLVM_LIBDIR_SUFFIX}" ${extra_libdir})
 -    set(_install_rpath "\$ORIGIN/../lib${LLVM_LIBDIR_SUFFIX}")
-+    set(_build_rpath "${CMAKE_INSTALL_FULL_LIBDIR}" ${extra_libdir})
 +    set(_install_rpath "${CMAKE_INSTALL_FULL_LIBDIR}")
      if(${CMAKE_SYSTEM_NAME} MATCHES "(FreeBSD|DragonFly)")
        set_property(TARGET ${name} APPEND_STRING PROPERTY
