@@ -5,7 +5,7 @@
   cmake,
   ninja,
   mkl,
-  oneTBB,
+  tbb_2022,
   opencl-headers,
   oneMath-sycl-blas,
   useMKL ? false,
@@ -30,7 +30,7 @@ in
 
     buildInputs =
       [
-        oneTBB
+        tbb_2022
         opencl-headers
       ]
       ++ lib.optionals useMKL [mkl]

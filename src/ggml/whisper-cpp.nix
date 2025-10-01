@@ -5,7 +5,7 @@
   ninja,
   oneDNN,
   oneMath,
-  oneTBB,
+  tbb_2022,
   # mkl,
   git,
   opencl-headers,
@@ -34,7 +34,7 @@ in
     buildInputs = [
       oneDNN
       oneMath
-      oneTBB
+      tbb_2022
       # mkl
       opencl-headers
       ocl-icd

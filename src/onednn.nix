@@ -3,7 +3,7 @@
   cmake,
   ninja,
   fetchFromGitHub,
-  oneTBB,
+  tbb_2022,
   opencl-headers,
   ocl-icd,
   gcc,
@@ -28,7 +28,7 @@ in
     ];
 
     buildInputs = [
-      oneTBB
+      tbb_2022
       llvm.openmp
       #llvm.merged
       opencl-headers

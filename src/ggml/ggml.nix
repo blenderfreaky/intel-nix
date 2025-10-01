@@ -5,7 +5,7 @@
   ninja,
   oneDNN,
   oneMath,
-  oneTBB,
+  tbb_2022,
   mkl,
   git,
   opencl-headers,
@@ -32,7 +32,7 @@ llvm.stdenv.mkDerivation {
   buildInputs = [
     oneDNN
     oneMath
-    oneTBB
+    tbb_2022
     mkl
     opencl-headers
     ocl-icd
