@@ -7,27 +7,26 @@
   ninja,
   level-zero,
   hwloc,
-  autogen,
   autoconf,
-  automake,
-  oneTBB,
+  tbb_2022,
   numactl,
   jemalloc,
   pkg-config,
   cudaPackages,
-  useJemalloc ? false,
-  cudaSupport ? false,
-  levelZeroSupport ? true,
+  useJemalloc ? true,
+  config,
+  cudaSupport ? config.cudaSupport,
+  # TODO: Should a flag like config.levelZeroSupport be introduced, use that
+  #       This flag is a bit of a bike-shedding name right now
+  levelZeroSupport ? false,
   ctestCheckHook,
-  buildTests ? false,
   gtest,
   gbenchmark,
   python3,
-  doxygen,
   sphinx,
   buildDocs ? true,
 }: let
-  version = "1.1.0-dev2";
+  version = "1.0.3";
   tag = "v${version}";
 in
   stdenv.mkDerivation (finalAttrs: {
@@ -42,26 +41,20 @@ in
       ]
       ++ lib.optionals buildDocs [
         python3
-        doxygen
         sphinx
       ];
 
     buildInputs =
       [
-        # Is this always needed?
+        tbb_2022
+      ]
+      ++ lib.optionals levelZeroSupport [
         level-zero
-        oneTBB
-        # TODO: Are these both needed?
-        # Also, should they be propagated?
-        hwloc
-        hwloc.dev
       ]
       ++ lib.optionals useJemalloc [
         jemalloc
-        # TODO: Are these needed?
-        autogen
         autoconf
-        automake
+        hwloc
       ]
       ++ lib.optionals cudaSupport [
         cudaPackages.cuda_cudart
@@ -72,17 +65,20 @@ in
         gbenchmark
       ];
 
-    # TODO: Is this needed?
-    nativeCheckInputs = lib.optionals finalAttrs.doCheck [
-      ctestCheckHook
-    ];
-
     src = fetchFromGitHub {
       owner = "oneapi-src";
       repo = "unified-memory-framework";
       inherit tag;
-      sha256 = "sha256-sWd3Z6vQHwsZcBf/cxluWfwuBxfr7sumg7HWeqaTRLo=";
+      sha256 = "sha256-j7qQwBetICf1sTz+ssZQLm9P0SiH68lcEvtV1YLuW5s=";
     };
+
+    patches = [
+      (fetchpatch {
+        name = "gtest-use-find_package.patch";
+        url = "https://github.com/oneapi-src/unified-memory-framework/commit/503d302a72f719a3f11fce0e610f07a3793549d9.patch";
+        hash = "sha256-T29pJuWGcj/Kfw3VNW5lNBG5OrBsB1UAvwroQ+km4Vs=";
+      })
+    ];
 
     postPatch = ''
       # The CMake tries to find out the version via git.
@@ -92,43 +88,70 @@ in
     '';
 
     # If included, jemalloc needs to be vendored, as they don't support using a pre-built version
-    # and they compile with specific flags that the nixpkgs version doesn't (and shouldn't) set
-    # Autoconf wants to write files, so we copy the source to the build directory
+    # and they compile with specific flags that the nixpkgs version doesn't (and shouldn't) set.
+    # autoconf wants to write files, so we copy the source to the build directory
     # where we can make it writable
     preConfigure = lib.optionalString useJemalloc ''
       cp -r ${jemalloc.src} /build/jemalloc
       chmod -R u+w /build/jemalloc
     '';
 
-    preInstall = lib.optionalString useJemalloc ''
-      mkdir -p $out/jemalloc
-    '';
+    cmakeFlags =
+      [
+        (lib.cmakeBool "UMF_BUILD_CUDA_PROVIDER" cudaSupport)
+        (lib.cmakeBool "UMF_BUILD_LEVEL_ZERO_PROVIDER" levelZeroSupport)
 
-    cmakeFlags = [
-      (lib.cmakeBool "FETCHCONTENT_FULLY_DISCONNECTED" true)
-      (lib.cmakeBool "FETCHCONTENT_QUIET" false)
+        (lib.cmakeBool "UMF_BUILD_LIBUMF_POOL_JEMALLOC" useJemalloc)
 
-      (lib.cmakeBool "UMF_BUILD_CUDA_PROVIDER" cudaSupport)
-      (lib.cmakeBool "UMF_BUILD_LEVEL_ZERO_PROVIDER" levelZeroSupport)
+        (lib.cmakeBool "UMF_BUILD_TESTS" finalAttrs.doCheck)
+        # We won't be able to run these inside the sandbox, so no use in building them
+        (lib.cmakeBool "UMF_BUILD_GPU_TESTS" false)
+        (lib.cmakeBool "UMF_BUILD_BENCHMARKS" false)
+        (lib.cmakeBool "UMF_BUILD_EXAMPLES" false)
+        (lib.cmakeBool "UMF_BUILD_GPU_EXAMPLES" false)
+      ]
+      ++ lib.optional useJemalloc [
+        (lib.cmakeBool "FETCHCONTENT_FULLY_DISCONNECTED" true)
+        (lib.cmakeBool "FETCHCONTENT_QUIET" false)
 
-      (lib.cmakeBool "UMF_BUILD_LIBUMF_POOL_JEMALLOC" useJemalloc)
+        (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_JEMALLOC_TARG" "/build/jemalloc")
+      ];
 
-      (lib.cmakeBool "UMF_BUILD_TESTS" finalAttrs.doCheck)
-      (lib.cmakeBool "UMF_BUILD_GPU_TESTS" finalAttrs.doCheck)
-      (lib.cmakeBool "UMF_BUILD_BENCHMARKS" finalAttrs.doCheck)
-      (lib.cmakeBool "UMF_BUILD_EXAMPLES" finalAttrs.doCheck)
-      (lib.cmakeBool "UMF_BUILD_GPU_EXAMPLES" finalAttrs.doCheck)
-
-      (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_JEMALLOC_TARG" "/build/jemalloc")
-      (lib.cmakeFeature "FETCHCONTENT_BINARY_DIR_JEMALLOC_TARG" "${placeholder "out"}/jemalloc")
+    nativeCheckInputs = [
+      ctestCheckHook
     ];
 
-    doCheck = buildTests;
+    doCheck = true;
+    dontUseNinjaCheck = true;
 
     NIX_LDFLAGS = lib.optionalString finalAttrs.doCheck "-rpath ${
       lib.makeLibraryPath [
-        oneTBB
-        level-zero
+        tbb_2022
       ]
     }";
+
+    disabledTests = [
+      # These tests try to access sysfs, which is unavailable in the sandbox
+      "test_memspace_highest_capacity"
+      "test_memtarget"
+      "test_provider_tracking_fixture_tests"
+      "test_scalable_coarse_file"
+    ];
+
+    meta = {
+      homepage = "https://github.com/oneapi-src/unified-memory-framework";
+      changelog = "https://github.com/oneapi-src/unified-memory-framework/releases/tag/v${version}";
+      longDescription = ''
+        A library for constructing allocators and memory pools.
+        It also contains broadly useful abstractions and utilities for memory management.
+        UMF allows users to manage multiple memory pools characterized by different attributes,
+        allowing certain allocation types to be isolated from others and allocated using different hardware resources as required.
+      '';
+      platforms = lib.platforms.all;
+      license = [
+        lib.licenses.asl20
+        lib.licenses.llvm-exception
+      ];
+      maintainers = [lib.maintainers.blenderfreaky];
+    };
   })
