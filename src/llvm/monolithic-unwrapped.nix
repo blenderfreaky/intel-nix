@@ -44,7 +44,7 @@
   vulkanSupport ? true,
   useLibcxx ? false,
   useLld ? true,
-  buildTests ? false,
+  buildTests ? true,
   buildDocs ? false,
   buildMan ? false,
 }: let
@@ -57,7 +57,7 @@
   #   else llvmPackages.stdenv;
   # stdenv = stdenv';
   # stdenv = ccacheStdenv.override {stdenv = stdenv';};
-  # stdenv = ccacheStdenv;
+  stdenv = ccacheStdenv;
   deps = callPackage ./deps.nix {};
   unified-runtime' = unified-runtime.override {
     inherit
@@ -163,10 +163,6 @@ in
       then "check-all"
       else null;
 
-    checkFlags = lib.optionals buildTests [
-      "LIT_ARGS=--param CLANG=${ccWrapperStub}/bin/clang++"
-    ];
-
     cmakeBuildType = "Release";
 
     patches = [
@@ -179,36 +175,41 @@ in
       #./gnu-install-dirs-2.patch
     ];
 
-    postPatch = ''
-        # Parts of libdevice are built using the freshly-built compiler.
-        # As it tries to link to system libraries, we need to wrap it with the
-        # usual nix cc-wrapper.
-        # Since the compiler to be wrapped is not available at this point,
-        # we use a stub that points to where it will be later on
-        # in `/build/source/build/bin/clang-21`
-        # Note: both nix and bash try to expand clang_exe here, so double-escape it
-        substituteInPlace libdevice/cmake/modules/SYCLLibdevice.cmake \
-          --replace-fail "\''${clang_exe}" "${ccWrapperStub}/bin/clang++"
+    postPatch =
+      lib.optionalString buildTests ''
+        # Fix scan-build scripts to use Nix perl instead of /usr/bin/env
+        patchShebangs clang/tools/scan-build/libexec/
+      ''
+      + ''
+          # Parts of libdevice are built using the freshly-built compiler.
+          # As it tries to link to system libraries, we need to wrap it with the
+          # usual nix cc-wrapper.
+          # Since the compiler to be wrapped is not available at this point,
+          # we use a stub that points to where it will be later on
+          # in `/build/source/build/bin/clang-21`
+          # Note: both nix and bash try to expand clang_exe here, so double-escape it
+          substituteInPlace libdevice/cmake/modules/SYCLLibdevice.cmake \
+            --replace-fail "\''${clang_exe}" "${ccWrapperStub}/bin/clang++"
 
-        # When running without this, their CMake code copies files from the Nix store.
-        # As the Nix store is read-only and COPY copies permissions by default,
-        # this will lead to the copied files also being read-only.
-        # As CMake at a later point wants to write into copied folders, this causes
-        # the build to fail with a (rather cryptic) permission error.
-        # By setting NO_SOURCE_PERMISSIONS we side-step this issue.
-        # Note in case of future build failures: if there are executables in any of the copied folders,
-        # we may need to add special handling to set the executable permissions.
-        # See also: https://github.com/intel/llvm/issues/19635#issuecomment-3134830708
-        sed -i '/file(COPY / { /NO_SOURCE_PERMISSIONS/! s/)\s*$/ NO_SOURCE_PERMISSIONS)/ }' \
-          unified-runtime/cmake/FetchLevelZero.cmake \
-          sycl/CMakeLists.txt \
-          sycl/cmake/modules/FetchEmhash.cmake
+          # When running without this, their CMake code copies files from the Nix store.
+          # As the Nix store is read-only and COPY copies permissions by default,
+          # this will lead to the copied files also being read-only.
+          # As CMake at a later point wants to write into copied folders, this causes
+          # the build to fail with a (rather cryptic) permission error.
+          # By setting NO_SOURCE_PERMISSIONS we side-step this issue.
+          # Note in case of future build failures: if there are executables in any of the copied folders,
+          # we may need to add special handling to set the executable permissions.
+          # See also: https://github.com/intel/llvm/issues/19635#issuecomment-3134830708
+          sed -i '/file(COPY / { /NO_SOURCE_PERMISSIONS/! s/)\s*$/ NO_SOURCE_PERMISSIONS)/ }' \
+            unified-runtime/cmake/FetchLevelZero.cmake \
+            sycl/CMakeLists.txt \
+            sycl/cmake/modules/FetchEmhash.cmake
 
-      # `NO_CMAKE_PACKAGE_REGISTRY` prevents it from finding OpenCL, so we unset it
-      # Note that this cmake file is imported in various places, not just unified-runtime
-      substituteInPlace unified-runtime/cmake/FetchOpenCL.cmake \
-          --replace-fail "NO_CMAKE_PACKAGE_REGISTRY" ""
-    '';
+        # `NO_CMAKE_PACKAGE_REGISTRY` prevents it from finding OpenCL, so we unset it
+        # Note that this cmake file is imported in various places, not just unified-runtime
+        substituteInPlace unified-runtime/cmake/FetchOpenCL.cmake \
+            --replace-fail "NO_CMAKE_PACKAGE_REGISTRY" ""
+      '';
 
     preConfigure = ''
       flags=$(python buildbot/configure.py \
@@ -319,138 +320,23 @@ in
     requiredSystemFeatures = ["big-parallel"];
     enableParallelBuilding = true;
 
-    doCheck = true;
+    postBuild = ''
+      echo "=== Build directory structure (for debugging) ==="
+      ${tree}/bin/tree -L 2 -d "$PWD" || find "$PWD" -maxdepth 2 -type d
+      echo "=== Checking for scan-build files ==="
+      ls -la "$PWD/libexec/" 2>/dev/null || echo "libexec directory does not exist"
+      echo "=== Checking for math.h in clang resource directory ==="
+      find "$PWD" -name "math.h" | head -5 || echo "No math.h found"
+    '';
 
-    #installPhase = ''
-    #  mkdir $out
-    #  mv /build/source $out
-    #  exit 0
-    #'';
+    doCheck = buildTests;
 
-    passthru.split = stdenv.mkDerivation {
-      pname = "llvm-split";
-      inherit (finalAttrs) version;
-
-      nativeBuildInputs = [
-        cmake
-        ninja
-      ];
-      #src =finalAttrs.finalPackage.outPath;
-      dontUnpack = true;
-
-      preInstall = ''
-        cp -r ${finalAttrs.finalPackage}/source /build/source
-        chmod -R u+w /build/source
-        pwd
-        ls
-        echo ====
-        ls *
-          cd /build/source/build
-          pwd
-          ls
-      '';
-
-      cmakeDir = "/build/source/llvm";
-
-      outputs = ["out" "dev" "lib"];
-      dontBuild = true;
-      dontConfigure = true;
-      #installPhase = ''
-      #
-      #   '';
-    };
-
-    #fixupPhase = ''
-    #mkdir $dev
-    #cp -a $out/include $dev/ && rm -rf $out/include
-    #mkdir $lib
-    #mv $out/lib $lib/ && rm -rf $out/lib
-    #mv $out/libexec $lib/ && rm -rf $out/libexec
-    #'';
-    #postFixup = ''
-    #'';
-    preFixup =
-      #''
-      #   ${tree}/bin/tree $out
-      #   ${tree}/bin/tree $dev
-      #   ${tree}/bin/tree $lib
-      #   ${tree}/bin/tree $python
-      #   ${tree}/bin/tree $share
-      # ''
-      # +
-      lib.optionalString false ''
-        # Phase 1: Move all development files from the main ($out) package to the
-        # development ($dev) package. This includes headers, static libraries,
-        # and build system configuration files (CMake, pkg-config).
-
-        echo "Moving header files to \$dev output..."
-        if [ -d "$out/include" ]; then
-          # Move the entire include directory to the dev output.
-          mv "$out/include" "$dev/"
-        fi
-
-        echo "Moving static libraries (.a) to \$dev output..."
-        mkdir -p "$dev/lib"
-        # Find and move all static libraries from the main output's lib dir.
-        find "$out/lib" -maxdepth 1 -name "*.a" -exec mv -t "$dev/lib" {} +
-
-        echo "Moving CMake files to \$dev output..."
-        if [ -d "$out/lib/cmake" ]; then
-          mkdir -p "$dev/lib"
-          mv "$out/lib/cmake" "$dev/lib/"
-        fi
-
-        echo "Moving pkg-config files to \$dev output..."
-        if [ -d "$out/share/pkgconfig" ]; then
-          mkdir -p "$dev/share"
-          mv "$out/share/pkgconfig" "$dev/share/"
-        fi
-        if [ -d "$out/lib/pkgconfig" ]; then
-          mkdir -p "$dev/lib/pkgconfig"
-          mv "$out/lib/pkgconfig"/* "$dev/lib/pkgconfig/"
-          rmdir "$out/lib/pkgconfig"
-        fi
-
-
-        # Phase 2: Consolidate remaining development files from the library ($lib)
-        # package into the development ($dev) package. This also resolves a
-        # duplication issue with libLLVMGenXIntrinsics.a.
-
-        echo "Moving static libraries (.a) from \$lib to \$dev..."
-        if [ -d "$lib/lib" ]; then
-          find "$lib/lib" -maxdepth 1 -name "*.a" -exec mv -t "$dev/lib" {} +
-        fi
-        if [ -d "$lib/lib/pkgconfig" ]; then
-          mkdir -p "$dev/lib/pkgconfig"
-          mv "$lib"/lib/pkgconfig/* "$dev/lib/pkgconfig/"
-          rm -rf "$lib/lib/pkgconfig"
-        fi
-
-        # Phase 3: De-duplicate shared libraries. The canonical versions are in
-        # the $lib output, so we remove the redundant copies from $out.
-
-        echo "Removing duplicated shared libraries from \$out..."
-        rm -f $out/lib/libur_loader.so*
-        rm -f $out/lib/libur_adapter_*.so*
-
-        # Phase 4: Consolidate split tool dependencies. Move helper executables
-        # and libraries from $lib to $out so that user-facing tools are
-        # self-contained and functional.
-
-        echo "Moving scan-build helpers from \$lib to \$out..."
-        if [ -d "$lib/libexec" ]; then
-          mkdir -p "$out/libexec"
-          mv "$lib/libexec"/* "$out/libexec/"
-          rm -rf "$lib/libexec"
-        fi
-
-        echo "Moving SYCL tool helpers from \$lib to \$out..."
-        if [ -d "$lib/lib" ]; then
-          # Use a subshell with nullglob to safely handle cases where no files match.
-          (shopt -s nullglob; mv "$lib"/lib/libsycl_*.so "$out/lib/")
-          (shopt -s nullglob; mv "$lib"/lib/libze_*.so "$out/lib/")
-        fi
-      '';
+    preCheck = lib.optionalString buildTests ''
+      # Set CLANG environment variable to use wrapped clang for tests
+      # This is picked up by lit's use_llvm_tool("clang", search_env="CLANG", ...)
+      # and ensures tests have access to stdlib headers
+      export CLANG="${ccWrapperStub}/bin/clang++"
+    '';
 
     # Copied from the regular LLVM derivation:
     #  pkgs/development/compilers/llvm/common/llvm/default.nix
@@ -474,7 +360,6 @@ in
         and SYCL support for heterogeneous computing across CPUs, GPUs, and FPGAs.
       '';
       homepage = "https://github.com/intel/llvm";
-      # TODO: Apache with LLVM exceptions
       license = with licenses; [ncsa asl20 llvm-exception];
       maintainers = with maintainers; [blenderfreaky];
       platforms = platforms.linux;
@@ -485,5 +370,6 @@ in
       # The llvm package set of the same version as
       # Intels compiler is based on
       baseLlvm = llvmPackages_21;
+      inherit ccWrapperStub;
     };
   })

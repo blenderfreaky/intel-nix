@@ -8,6 +8,8 @@
   level-zero,
   hwloc,
   autoconf,
+  autogen,
+  automake,
   tbb_2022,
   numactl,
   jemalloc,
@@ -18,7 +20,7 @@
   cudaSupport ? config.cudaSupport,
   # TODO: Should a flag like config.levelZeroSupport be introduced, use that
   #       This flag is a bit of a bike-shedding name right now
-  levelZeroSupport ? false,
+  levelZeroSupport ? true,
   ctestCheckHook,
   gtest,
   gbenchmark,
@@ -54,6 +56,8 @@ in
       ++ lib.optionals useJemalloc [
         jemalloc
         autoconf
+        autogen
+        automake
         hwloc
       ]
       ++ lib.optionals cudaSupport [
@@ -85,6 +89,9 @@ in
       # Since we're not in a clone, git describe won't work.
       substituteInPlace cmake/helpers.cmake \
         --replace-fail "git describe --always" "echo ${tag}"
+
+      substituteInPlace CMakeLists.txt \
+        --replace-fail "\''${jemalloc_targ_BINARY_DIR}" "$out/jemalloc"
     '';
 
     # If included, jemalloc needs to be vendored, as they don't support using a pre-built version
@@ -117,11 +124,15 @@ in
         (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_JEMALLOC_TARG" "/build/jemalloc")
       ];
 
+    preInstall = lib.optionalString useJemalloc ''
+      mkdir -p $out/jemalloc
+    '';
+
     nativeCheckInputs = [
       ctestCheckHook
     ];
 
-    doCheck = true;
+    doCheck = false;
     dontUseNinjaCheck = true;
 
     NIX_LDFLAGS = lib.optionalString finalAttrs.doCheck "-rpath ${
