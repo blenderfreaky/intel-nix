@@ -99,8 +99,8 @@ in
     # autoconf wants to write files, so we copy the source to the build directory
     # where we can make it writable
     preConfigure = lib.optionalString useJemalloc ''
-      cp -r ${jemalloc.src} /build/jemalloc
-      chmod -R u+w /build/jemalloc
+      cp -r ${jemalloc.src} ../jemalloc
+      chmod -R u+w ../jemalloc
     '';
 
     cmakeFlags =
@@ -121,7 +121,7 @@ in
         (lib.cmakeBool "FETCHCONTENT_FULLY_DISCONNECTED" true)
         (lib.cmakeBool "FETCHCONTENT_QUIET" false)
 
-        (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_JEMALLOC_TARG" "/build/jemalloc")
+        (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_JEMALLOC_TARG" "../../jemalloc")
       ];
 
     preInstall = lib.optionalString useJemalloc ''
