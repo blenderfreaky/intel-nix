@@ -72,25 +72,91 @@
       ;
   };
   # See the postPatch phase for details on why this is used
-  ccWrapperStub = wrapCC (
+  #
+  # For tests, we create a smart wrapper that:
+  # - Detects when -cc1 is used (frontend mode) and calls unwrapped clang directly
+  # - Otherwise uses wrapped clang (driver mode) to provide stdlib headers
+  ccWrapperStub = let
+    root = "/build/source/build";
+    # Create the basic stub that will be wrapped
+    basicStub = stdenv.mkDerivation {
+      name = "ccWrapperStub-basic";
+      dontUnpack = true;
+      installPhase = ''
+        mkdir -p $out/bin
+        # Create clang-21 as the base
+        cat > $out/bin/clang-21 <<'INNEREOF'
+        #!/bin/sh
+        exec "${root}/bin/clang-21" "$@"
+        INNEREOF
+        chmod +x $out/bin/clang-21
+        # Create symlinks so wrapCC creates all variants
+        ln -s clang-21 $out/bin/clang
+        ln -s clang-21 $out/bin/clang++
+      '';
+      passthru.isClang = true;
+    };
+    # Wrap it to get stdlib headers
+    wrappedStub = wrapCC basicStub;
+  in
+    # Create the final smart stub that dispatches based on -cc1
     stdenv.mkDerivation {
       name = "ccWrapperStub";
       dontUnpack = true;
-      installPhase = let
-        root = "/build/source/build";
-      in ''
+      installPhase = ''
         mkdir -p $out/bin
-        cat > $out/bin/clang-21 <<EOF
+
+        # Create dispatcher script for each binary variant
+        for variant in clang-21 clang clang++; do
+          cat > $out/bin/$variant <<EOF
         #!/bin/sh
-        exec "${root}/bin/clang-21" "\$@"
+        # Bypass wrapper for frontend modes and query operations FIRST
+        # - Frontend modes (-cc1, -cc1as) don't work with wrapper flags
+        # - Query operations need to return unwrapped clang's paths for lit test setup
+        # - Driver dry-run (-###) and analyze mode (--analyze) to avoid wrapper warnings in tests
+        # - Response files (@file) - wrapper's expandResponseParams mangles line continuations
+        # IMPORTANT: This must come BEFORE --driver-mode check to ensure -### bypasses even with --driver-mode=g++
+        for arg in "\$@"; do
+          case "\$arg" in
+            -cc1|-cc1as|-print-*|-dump*|--version|-v|-###|--analyze|@*)
+              exec "${root}/bin/clang-21" "\$@"
+              ;;
+          esac
+        done
+
+        # Check for --driver-mode requesting C++ mode
+        # This routes to wrapped clang++ so Nix cc-wrapper adds C++ stdlib paths
+        for arg in "\$@"; do
+          case "\$arg" in
+            --driver-mode=g++|--driver-mode=clang++)
+              exec "${wrappedStub}/bin/clang++" "\$@"
+              ;;
+          esac
+        done
+
+        # Otherwise use wrapped version for stdlib headers
+        # Map to the appropriate wrapped binary based on binary name
+        # Note: wrapCC only creates 'clang' and 'clang++', not 'clang-21'
+        # Both 'clang' and 'clang-21' are language-agnostic, so we map clang-21 → clang
+        name="\$(basename "\$0")"
+        case "\$name" in
+          clang++)
+            exec "${wrappedStub}/bin/clang++" "\$@"
+            ;;
+          clang|clang-21)
+            exec "${wrappedStub}/bin/clang" "\$@"
+            ;;
+        esac
         EOF
-        chmod +x $out/bin/clang-21
-        cp $out/bin/clang-21 $out/bin/clang
-        cp $out/bin/clang-21 $out/bin/clang++
+          chmod +x $out/bin/$variant
+        done
       '';
-      passthru.isClang = true;
-    }
-  );
+      passthru = {
+        isClang = true;
+        unwrapped = basicStub;
+        wrapped = wrappedStub;
+      };
+    };
 in
   stdenv.mkDerivation (finalAttrs: {
     pname = "intel-llvm";
@@ -253,7 +319,9 @@ in
         # (lib.cmakeFeature "LLVM_TARGETS_TO_BUILD" (lib.concatStringsSep ";" llvmTargetsToBuild'))
         # (lib.cmakeFeature "LLVM_ENABLE_PROJECTS" (lib.concatStringsSep ";" llvmProjectsToBuild))
         #(lib.cmakeFeature "LLVM_HOST_TRIPLE" stdenv.hostPlatform.config)
-        #(lib.cmakeFeature "LLVM_DEFAULT_TARGET_TRIPLE" stdenv.hostPlatform.config)
+        # Set default target triple to match the wrapped clang's target from stdenv
+        # This ensures PCH files and other artifacts are compatible between wrapped and unwrapped clang
+        (lib.cmakeFeature "LLVM_DEFAULT_TARGET_TRIPLE" stdenv.hostPlatform.config)
         (lib.cmakeBool "LLVM_INSTALL_UTILS" true)
         (lib.cmakeBool "LLVM_INCLUDE_DOCS" (buildDocs || buildMan))
         (lib.cmakeBool "MLIR_INCLUDE_DOCS" (buildDocs || buildMan))
@@ -332,10 +400,16 @@ in
     doCheck = buildTests;
 
     preCheck = lib.optionalString buildTests ''
-      # Set CLANG environment variable to use wrapped clang for tests
+      # Set CLANG environment variable to use smart wrapper for tests
       # This is picked up by lit's use_llvm_tool("clang", search_env="CLANG", ...)
-      # and ensures tests have access to stdlib headers
-      export CLANG="${ccWrapperStub}/bin/clang++"
+      # Use clang-21 (language-agnostic) - the wrapper routes it to wrapped 'clang'
+      # which detects C vs C++ automatically by file extension
+      # The wrapper intelligently bypasses wrapping for query/test modes
+      export CLANG="${ccWrapperStub}/bin/clang-21"
+
+      # Disable wrapper's response file usage to prevent re-escaping of arguments
+      # Tests use response files (@file.args) and the wrapper's printf "%q" escaping breaks them
+      export NIX_CC_USE_RESPONSE_FILE=0
     '';
 
     # Copied from the regular LLVM derivation:
