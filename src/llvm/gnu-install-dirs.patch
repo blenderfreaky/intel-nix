@@ -1,9 +1,3 @@
-commit a64c277cfcac33171cd99f3d9e2c59f8a0edfaef
-Author: blenderfreaky <blenderfreaky@mailbox.org>
-Date:   Fri Sep 26 23:17:11 2025 +0200
-
-    gnu install dirs
-
 diff --git a/bolt/CMakeLists.txt b/bolt/CMakeLists.txt
 index 5c7d51e1e398..9158552fa09b 100644
 --- a/bolt/CMakeLists.txt
@@ -157,10 +151,10 @@ index ca233103ccdb..3e4dd9a58c5f 100644
  
        if (NOT LLVM_ENABLE_IDE)
 diff --git a/libclc/CMakeLists.txt b/libclc/CMakeLists.txt
-index ae576838f41f..75cf28726845 100644
+index 8458f4f24234..0d0f04b26985 100644
 --- a/libclc/CMakeLists.txt
 +++ b/libclc/CMakeLists.txt
-@@ -621,13 +621,13 @@ foreach( t ${LIBCLC_TARGETS_TO_BUILD} )
+@@ -630,13 +630,13 @@ foreach( t ${LIBCLC_TARGETS_TO_BUILD} )
  endforeach( t )
  
  install(DIRECTORY ${LIBCLC_LIBRARY_OUTPUT_INTDIR}
@@ -211,7 +205,7 @@ index b4744f935ad8..af880e9621df 100644
  config.substitutions.append(('%{flags}', '--sysroot=@CMAKE_INSTALL_PREFIX@'))
  
 diff --git a/libdevice/cmake/modules/SYCLLibdevice.cmake b/libdevice/cmake/modules/SYCLLibdevice.cmake
-index 829cd23b66c2..a4eb3e7160bf 100644
+index 8b7eaa3a723a..312e7dafcd31 100644
 --- a/libdevice/cmake/modules/SYCLLibdevice.cmake
 +++ b/libdevice/cmake/modules/SYCLLibdevice.cmake
 @@ -12,16 +12,16 @@ else()
@@ -300,10 +294,10 @@ index 814c59251611..7188084e8061 100644
  Name: LLVMSPIRVLib
  Description: LLVM/SPIR-V bi-directional translator
 diff --git a/llvm/CMakeLists.txt b/llvm/CMakeLists.txt
-index 0584254dc0bd..6735b8c92a95 100644
+index 315dfd5c3277..8901458b2784 100644
 --- a/llvm/CMakeLists.txt
 +++ b/llvm/CMakeLists.txt
-@@ -1208,9 +1208,9 @@ if (NOT TENSORFLOW_AOT_PATH STREQUAL "")
+@@ -1204,9 +1204,9 @@ if (NOT TENSORFLOW_AOT_PATH STREQUAL "")
    add_subdirectory(${TENSORFLOW_AOT_PATH}/xla_aot_runtime_src
      ${CMAKE_ARCHIVE_OUTPUT_DIRECTORY}/tf_runtime)
    install(TARGETS tf_xla_runtime EXPORT LLVMExports
@@ -316,7 +310,7 @@ index 0584254dc0bd..6735b8c92a95 100644
    # Once we add more modules, we should handle this more automatically.
    if (DEFINED LLVM_OVERRIDE_MODEL_HEADER_INLINERSIZEMODEL)
 diff --git a/llvm/cmake/modules/AddLLVM.cmake b/llvm/cmake/modules/AddLLVM.cmake
-index 83772ed8d2b1..5a687e2222fc 100644
+index c98e78da97b3..743a14be12a1 100644
 --- a/llvm/cmake/modules/AddLLVM.cmake
 +++ b/llvm/cmake/modules/AddLLVM.cmake
 @@ -974,8 +974,8 @@ macro(add_llvm_library name)
@@ -330,7 +324,7 @@ index 83772ed8d2b1..5a687e2222fc 100644
                RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}" COMPONENT ${name})
  
        if (NOT LLVM_ENABLE_IDE)
-@@ -2263,7 +2263,7 @@ function(llvm_install_library_symlink name dest type)
+@@ -2278,7 +2278,7 @@ function(llvm_install_library_symlink name dest type)
      set(LLVM_LINK_OR_COPY copy)
    endif()
  
@@ -339,24 +333,18 @@ index 83772ed8d2b1..5a687e2222fc 100644
    if((WIN32 OR CYGWIN) AND "${type}" STREQUAL "SHARED")
      set(output_dir "${CMAKE_INSTALL_BINDIR}")
    endif()
-@@ -2539,16 +2539,16 @@ function(llvm_setup_rpath name)
- 
-   if (APPLE)
-     set(_install_name_dir INSTALL_NAME_DIR "@rpath")
--    set(_install_rpath "@loader_path/../lib${LLVM_LIBDIR_SUFFIX}" ${extra_libdir})
-+    set(_install_rpath "${CMAKE_INSTALL_FULL_LIBDIR}" ${extra_libdir})
-   elseif(${CMAKE_SYSTEM_NAME} MATCHES "AIX" AND BUILD_SHARED_LIBS)
-     # $ORIGIN is not interpreted at link time by aix ld.
+@@ -2560,10 +2560,10 @@ function(llvm_setup_rpath name)
      # Since BUILD_SHARED_LIBS is only recommended for use by developers,
      # hardcode the rpath to build/install lib dir first in this mode.
      # FIXME: update this when there is better solution.
 -    set(_install_rpath "${LLVM_LIBRARY_OUTPUT_INTDIR}" "${CMAKE_INSTALL_PREFIX}/lib${LLVM_LIBDIR_SUFFIX}" ${extra_libdir})
 +    set(_install_rpath "${LLVM_LIBRARY_OUTPUT_INTDIR}" "${CMAKE_INSTALL_FULL_LIBDIR}" ${extra_libdir})
    elseif(UNIX)
-     set(_build_rpath "\$ORIGIN/../lib${LLVM_LIBDIR_SUFFIX}" ${extra_libdir})
+-    set(_build_rpath "\$ORIGIN/../lib${LLVM_LIBDIR_SUFFIX}" ${extra_libdir})
 -    set(_install_rpath "\$ORIGIN/../lib${LLVM_LIBDIR_SUFFIX}")
++    set(_build_rpath "${CMAKE_INSTALL_FULL_LIBDIR}" ${extra_libdir})
 +    set(_install_rpath "${CMAKE_INSTALL_FULL_LIBDIR}")
-     if(${CMAKE_SYSTEM_NAME} MATCHES "(FreeBSD|DragonFly)")
+     if("${CMAKE_SYSTEM_NAME}" MATCHES "(FreeBSD|DragonFly)")
        set_property(TARGET ${name} APPEND_STRING PROPERTY
                     LINK_FLAGS " -Wl,-z,origin ")
 diff --git a/llvm/cmake/modules/AddOCaml.cmake b/llvm/cmake/modules/AddOCaml.cmake
@@ -435,28 +423,28 @@ index 49df8fdcb7f7..06c6fdf37209 100644
        SmallString<256> Path(LLVM_INSTALL_PACKAGE_DIR);
        sys::fs::make_absolute(ActivePrefix, Path);
 diff --git a/mlir/cmake/modules/AddMLIR.cmake b/mlir/cmake/modules/AddMLIR.cmake
-index ff4269ed7acd..2d25a9f462c8 100644
+index 6589458ab789..9bff1af30631 100644
 --- a/mlir/cmake/modules/AddMLIR.cmake
 +++ b/mlir/cmake/modules/AddMLIR.cmake
-@@ -622,13 +622,13 @@ function(add_mlir_library_install name)
-   install(TARGETS ${name}
-     COMPONENT ${name}
-     ${export_to_mlirtargets}
--    LIBRARY DESTINATION lib${LLVM_LIBDIR_SUFFIX}
--    ARCHIVE DESTINATION lib${LLVM_LIBDIR_SUFFIX}
-+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-+    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
-     RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}"
-     # Note that CMake will create a directory like:
-     #   objects-${CMAKE_BUILD_TYPE}/obj.LibName
-     # and put object files there.
--    OBJECTS DESTINATION lib${LLVM_LIBDIR_SUFFIX}
-+    OBJECTS DESTINATION ${CMAKE_INSTALL_LIBDIR}
-   )
+@@ -638,13 +638,13 @@ function(add_mlir_library_install name)
+     install(TARGETS ${name}
+       COMPONENT ${name}
+       ${export_to_mlirtargets}
+-      LIBRARY DESTINATION lib${LLVM_LIBDIR_SUFFIX}
+-      ARCHIVE DESTINATION lib${LLVM_LIBDIR_SUFFIX}
++      LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
++      ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+       RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}"
+       # Note that CMake will create a directory like:
+       #   objects-${CMAKE_BUILD_TYPE}/obj.LibName
+       # and put object files there.
+-      OBJECTS DESTINATION lib${LLVM_LIBDIR_SUFFIX}
++      OBJECTS DESTINATION ${CMAKE_INSTALL_LIBDIR}
+     )
  
-   if (NOT LLVM_ENABLE_IDE)
+     if (NOT LLVM_ENABLE_IDE)
 diff --git a/mlir/cmake/modules/AddMLIRPython.cmake b/mlir/cmake/modules/AddMLIRPython.cmake
-index c14e614ed7d9..e3f8d9ef5a61 100644
+index 2b883558d33c..bbb721acf49b 100644
 --- a/mlir/cmake/modules/AddMLIRPython.cmake
 +++ b/mlir/cmake/modules/AddMLIRPython.cmake
 @@ -455,7 +455,7 @@ function(mlir_python_setup_extension_rpath target)

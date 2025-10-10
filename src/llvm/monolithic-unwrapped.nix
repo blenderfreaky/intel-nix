@@ -48,8 +48,8 @@
   buildDocs ? false,
   buildMan ? false,
 }: let
-  version = "unstable-2025-09-25";
-  date = "20250925";
+  version = "unstable-2025-10-09";
+  date = "20251009";
   llvmPackages = llvmPackages_21;
   # stdenv' =
   #   if useLibcxx
@@ -80,13 +80,13 @@
         root = "/build/source/build";
       in ''
         mkdir -p $out/bin
-        cat > $out/bin/clang-21 <<EOF
+        cat > $out/bin/clang-22 <<EOF
         #!/bin/sh
-        exec "${root}/bin/clang-21" "\$@"
+        exec "${root}/bin/clang-22" "\$@"
         EOF
-        chmod +x $out/bin/clang-21
-        cp $out/bin/clang-21 $out/bin/clang
-        cp $out/bin/clang-21 $out/bin/clang++
+        chmod +x $out/bin/clang-22
+        cp $out/bin/clang-22 $out/bin/clang
+        cp $out/bin/clang-22 $out/bin/clang++
       '';
       passthru.isClang = true;
     }
@@ -100,8 +100,8 @@ in
       owner = "intel";
       repo = "llvm";
       # tag = "v${version}";
-      rev = "611e24571eab5d0bebeea859200484e68ba910ff";
-      hash = "sha256-0dmZo1lUG4/k96zKmHNqZd8uYz4sW23gznx8LtDsCOU=";
+      rev = "a963e89b61345c8db16aa4cc2dd339d09ccf0638";
+      hash = "sha256-OhGnQ4uKd6q8smB0ue+k+dVzQpBwapWvfrzOFFfBOic=";
     };
 
     outputs = [
@@ -186,7 +186,7 @@ in
           # usual nix cc-wrapper.
           # Since the compiler to be wrapped is not available at this point,
           # we use a stub that points to where it will be later on
-          # in `/build/source/build/bin/clang-21`
+          # in `/build/source/build/bin/clang-22`
           # Note: both nix and bash try to expand clang_exe here, so double-escape it
           substituteInPlace libdevice/cmake/modules/SYCLLibdevice.cmake \
             --replace-fail "\''${clang_exe}" "${ccWrapperStub}/bin/clang++"
@@ -225,7 +225,7 @@ in
           ${lib.optionalString levelZeroSupport "--level_zero_adapter_version V1"} \
           ${lib.optionalString levelZeroSupport "--l0-headers ${lib.getInclude level-zero}/include/level_zero"} \
           ${lib.optionalString levelZeroSupport "--l0-loader ${lib.getLib level-zero}/lib/libze_loader.so"} \
-          --disable-jit # Currently broken afaict
+          # --disable-jit # Currently broken afaict
           # --enable-all-llvm-targets
           # --shared-libs # Bad and should not be used
       )
@@ -244,6 +244,9 @@ in
       # "-DCMAKE_C_FLAGS_RELEASE=-O3 -DNDEBUG -march=skylake -mtune=znver3 -flto=thin -ffat-lto-objects"
       # "-DCMAKE_CXX_FLAGS_RELEASE=-O3 -DNDEBUG -march=skylake -mtune=znver3 -flto=thin -ffat-lto-objects"
       # )
+
+      # patchShebangs llvm-spirv/tools/spirv-tool/gen_spirv.bash
+      # type configurePhase
     '';
 
     cmakeDir = "/build/source/llvm";
@@ -302,7 +305,7 @@ in
         #"-DCMAKE_INSTALL_BINDIR=${placeholder "out"}/bin"
 
         # Override clang resource directory to use build-time path during build
-        "-DCLANG_RESOURCE_DIR=lib/clang/21"
+        "-DCLANG_RESOURCE_DIR=lib/clang/22"
 
         # Direct CMake files to dev output (following nixpkgs pattern)
         (lib.cmakeFeature "LLVM_INSTALL_PACKAGE_DIR" "${placeholder "dev"}/lib/cmake/llvm")
