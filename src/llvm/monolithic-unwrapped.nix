@@ -32,6 +32,8 @@
   tree,
   wrapCC,
   ctestCheckHook,
+  ripgrep,
+  removeReferencesTo,
   rocmPackages ? {},
   cudaPackages ? {},
   levelZeroSupport ? true,
@@ -44,7 +46,7 @@
   vulkanSupport ? true,
   useLibcxx ? false,
   useLld ? true,
-  buildTests ? true,
+  buildTests ? false,
   buildDocs ? false,
   buildMan ? false,
 }: let
@@ -119,6 +121,7 @@ in
         pkg-config
         zlib
         zstd
+        removeReferencesTo
       ]
       ++ lib.optionals useLld [
         llvmPackages.bintools
@@ -173,6 +176,7 @@ in
       #})
       ./gnu-install-dirs.patch
       #./gnu-install-dirs-2.patch
+      ./sycl-jit-exclude-cmake-files.patch
     ];
 
     postPatch =
@@ -323,14 +327,14 @@ in
     requiredSystemFeatures = ["big-parallel"];
     enableParallelBuilding = true;
 
-    postBuild = ''
-      echo "=== Build directory structure (for debugging) ==="
-      ${tree}/bin/tree -L 2 -d "$PWD" || find "$PWD" -maxdepth 2 -type d
-      echo "=== Checking for scan-build files ==="
-      ls -la "$PWD/libexec/" 2>/dev/null || echo "libexec directory does not exist"
-      echo "=== Checking for math.h in clang resource directory ==="
-      find "$PWD" -name "math.h" | head -5 || echo "No math.h found"
-    '';
+    # postBuild = ''
+    #   echo "=== Build directory structure (for debugging) ==="
+    #   ${tree}/bin/tree -L 2 -d "$PWD" || find "$PWD" -maxdepth 2 -type d
+    #   echo "=== Checking for scan-build files ==="
+    #   ls -la "$PWD/libexec/" 2>/dev/null || echo "libexec directory does not exist"
+    #   echo "=== Checking for math.h in clang resource directory ==="
+    #   find "$PWD" -name "math.h" | head -5 || echo "No math.h found"
+    # '';
 
     doCheck = buildTests;
 
@@ -354,6 +358,15 @@ in
         --replace-fail "$out/bin/llvm-config" "$dev/bin/llvm-config"
       substituteInPlace "$dev/lib/cmake/llvm/LLVMConfig.cmake" \
         --replace-fail 'set(LLVM_BINARY_DIR "''${LLVM_INSTALL_PREFIX}")' 'set(LLVM_BINARY_DIR "'"$lib"'")'
+    '';
+
+    postFixup = ''
+
+      echo !!!ld
+      ${ripgrep}/bin/rg --text $lib $dev || echo "No matches found"
+      echo !!!dl
+      ${ripgrep}/bin/rg --text $dev $lib || echo "No matches found"
+
     '';
 
     meta = with lib; {
