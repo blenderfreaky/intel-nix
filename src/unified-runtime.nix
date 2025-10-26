@@ -39,13 +39,6 @@
   callPackage,
 }: let
   version = "0.12.0";
-  # TODO: intel-compute-runtime.src
-  # compute-runtime = fetchFromGitHub {
-  #   owner = "intel";
-  #   repo = "compute-runtime";
-  #   tag = "25.05.32567.17";
-  #   sha256 = "sha256-/9UQJ5Ng2ip+3cNcVZOtKAmnx4LpmPja+aTghIqF1bc=";
-  # };
   deps = callPackage ./llvm/deps.nix {};
   rocmtoolkit_joined = symlinkJoin {
     name = "rocm-merged";
@@ -53,7 +46,8 @@
     # The packages in here were chosen pretty arbitrarily.
     # clr and comgr are definitely needed though.
     paths = with rocmPackages; [
-      rocmPath
+      # rocmPath
+      clr
       rocm-comgr
       hsakmt
     ];
@@ -132,16 +126,6 @@ v-merged";
         ++ lib.optionals levelZeroSupport [
           level-zero
           intel-compute-runtime
-          # (intel-compute-runtime.overrideAttrs {
-          #   version = "25.27.34303.6";
-
-          #   src = fetchFromGitHub {
-          #     owner = "intel";
-          #     repo = "compute-runtime";
-          #     tag = version;
-          #     hash = "sha256-AgdPhEAg9N15lNfcX/zQLxBUDTzEEvph+y0FYbB6iCs=";
-          #   };
-          # })
         ]
         ++ lib.optionals vulkanSupport [
           vulkan-headers
@@ -160,8 +144,8 @@ v-merged";
         # TODO: Update to a tag once a new release is available
         #       On current latest tag there's build issues that are resolved in later commits,
         #       so we use a newer commit for now.
-        rev = "649062acea5f995d8994706f0aaafdd26dc7c032";
-        hash = "sha256-fCiK+HILl3YnyKGNzl0abHnuB+tyHp7jVPjrHOKpV/w=";
+        rev = "460ab7bc648fa2b3be8e0b7b4f0fd237db5fb606";
+        hash = "sha256-aPoCFsLla3jUR1v/cNEjHvRWpks/P5BZ6DQ59+vUvcQ=";
       };
 
       # src = fetchFromGitHub {
