@@ -4,7 +4,7 @@
 }:
 callPackage ./installer.nix deps {
   kit = "base";
-  version = "2025.2.1.44";
-  uuid = "3b7a16b3-a7b0-460f-be16-de0d64fa6b1e";
-  sha256 = "sha256-oVURJZG6uZ3YvYefUuqeakbaVR47ZgWduBV6bS6r5Dk=";
+  version = "2025.3.0.375";
+  uuid = "d640da34-77cc-4ab2-8019-ac5592f4ec19";
+  sha256 = "sha256-mEPSYvK1oG1sbc/Laac8KZNRxu8zoRv/St8Tybolk78=";
 }
