@@ -30,29 +30,29 @@
               then []
               else [
                 (final: prev: {
-                  spirv-tools = prev.spirv-tools.overrideAttrs rec {
-                    version = "1.4.321.0";
+                  # spirv-tools = prev.spirv-tools.overrideAttrs rec {
+                  #   version = "1.4.321.0";
 
-                    src = pkgs.fetchFromGitHub {
-                      owner = "KhronosGroup";
-                      repo = "SPIRV-Tools";
-                      rev = "5e7108e11015b1e2c7d944f766524d19fb599b9d";
-                      hash = "sha256-tn7+vzwLZ3MALFYWsBtDZCW0aoap1k4lZob50jI8dz8=";
-                    };
-                  };
+                  #   src = pkgs.fetchFromGitHub {
+                  #     owner = "KhronosGroup";
+                  #     repo = "SPIRV-Tools";
+                  #     rev = "5e7108e11015b1e2c7d944f766524d19fb599b9d";
+                  #     hash = "sha256-tn7+vzwLZ3MALFYWsBtDZCW0aoap1k4lZob50jI8dz8=";
+                  #   };
+                  # };
 
-                  spirv-headers = prev.spirv-headers.overrideAttrs {
-                    # Not a real version, just bypasses the broken marker
-                    version = "1.4.322";
+                  # spirv-headers = prev.spirv-headers.overrideAttrs {
+                  #   # Not a real version, just bypasses the broken marker
+                  #   version = "1.4.322";
 
-                    src = pkgs.fetchFromGitHub {
-                      owner = "KhronosGroup";
-                      repo = "SPIRV-Headers";
-                      # Latest commit on main branch as of 2025-08-10
-                      rev = "a7361efd139bf65de0e86d43b01b01e0b34d387f";
-                      hash = "sha256-Z03gXioXxtUviAmOXmPLHB/QaW3DQUGyaSXiAQj5UE4=";
-                    };
-                  };
+                  #   src = pkgs.fetchFromGitHub {
+                  #     owner = "KhronosGroup";
+                  #     repo = "SPIRV-Headers";
+                  #     # Latest commit on main branch as of 2025-08-10
+                  #     rev = "a7361efd139bf65de0e86d43b01b01e0b34d387f";
+                  #     hash = "sha256-Z03gXioXxtUviAmOXmPLHB/QaW3DQUGyaSXiAQj5UE4=";
+                  #   };
+                  # };
 
                   ccacheWrapper = prev.ccacheWrapper.override {
                     extraConfig = ''
