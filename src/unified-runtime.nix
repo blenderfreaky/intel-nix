@@ -144,8 +144,8 @@ v-merged";
         # TODO: Update to a tag once a new release is available
         #       On current latest tag there's build issues that are resolved in later commits,
         #       so we use a newer commit for now.
-        rev = "460ab7bc648fa2b3be8e0b7b4f0fd237db5fb606";
-        hash = "sha256-aPoCFsLla3jUR1v/cNEjHvRWpks/P5BZ6DQ59+vUvcQ=";
+        rev = "3fe547b15d5e61f182420f91a0ae3ae09b4789f4";
+        hash = "sha256-33sQEraAgDSZGWFU+xUmRaupDTZDrnlP0AiQq3bpCFk=";
       };
 
       # src = fetchFromGitHub {
