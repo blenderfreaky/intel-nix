@@ -6,7 +6,8 @@
   ninja,
   python3,
   pkg-config,
-  zstd,
+  # zstd,
+  pkgsStatic,
   hwloc,
   valgrind,
   # We use the in-tree unified-runtime, but we need all the same flags as the out-of-tree version.
@@ -50,9 +51,10 @@
   buildDocs ? false,
   buildMan ? false,
 }: let
-  version = "unstable-2025-10-09";
-  date = "20251009";
+  version = "unstable-2025-10-22";
+  date = "20251022";
   llvmPackages = llvmPackages_21;
+  inherit (pkgsStatic) zstd;
   # stdenv' =
   #   if useLibcxx
   #   then llvmPackages.libcxxStdenv
@@ -102,8 +104,8 @@ in
       owner = "intel";
       repo = "llvm";
       # tag = "v${version}";
-      rev = "a963e89b61345c8db16aa4cc2dd339d09ccf0638";
-      hash = "sha256-OhGnQ4uKd6q8smB0ue+k+dVzQpBwapWvfrzOFFfBOic=";
+      rev = "889db98f40908e3227badbc0906ca46047d92d81";
+      hash = "sha256-59oGj+9P4MzFgBPCEQPqiMSTKSE5EO2jWYos5hBRk4M=";
     };
 
     outputs = [
@@ -273,13 +275,13 @@ in
         (lib.cmakeBool "MLIR_INCLUDE_TESTS" buildTests)
         (lib.cmakeBool "SYCL_INCLUDE_TESTS" buildTests)
 
-        #"-DLLVM_ENABLE_ZSTD=FORCE_ON"
+        "-DLLVM_ENABLE_ZSTD=FORCE_ON"
         # TODO
         "-DLLVM_ENABLE_ZLIB=FORCE_ON"
         "-DLLVM_ENABLE_THREADS=ON"
         # Breaks tablegen build somehow
         # "-DLLVM_ENABLE_LTO=Thin"
-        "-DLLVM_USE_STATIC_ZSTD=OFF"
+        "-DLLVM_USE_STATIC_ZSTD=ON"
 
         # Having these set to true breaks the build
         # See https://github.com/intel/llvm/issues/19060
