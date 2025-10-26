@@ -66,6 +66,8 @@ stdenv.mkDerivation (finalAttrs: {
     "-DLLVM_EXTERNAL_OPENCL_CLANG_SOURCE_DIR='/build/opencl-clang'"
     (lib.cmakeFeature "LLVM_EXTERNAL_SPIRV_HEADERS_SOURCE_DIR" "${spirv-headers.src}")
 
+    "-DCMAKE_POLICY_VERSION_MINIMUM=3.5"
+
     #"-DPREFERRED_LLVM_VERSION=${lib.getVersion llvm}"
     #"-DOPENCL_HEADERS_DIR=${lib.getLib libclang}/lib/clang/${lib.getVersion libclang}/include/"
 
