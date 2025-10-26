@@ -9,6 +9,7 @@
   ccacheStdenv,
 }: let
   llvm-unwrapped = callPackage ./monolithic-unwrapped.nix {inherit unified-runtime emhash vc-intrinsics;};
+  # llvm-unwrapped = callPackage ./monolithic-unwrapped-fhs.nix {inherit unified-runtime emhash;};
   llvm-wrapper = wrapCC llvm-unwrapped;
   llvm = symlinkJoin {
     inherit (llvm-unwrapped) pname version meta;
