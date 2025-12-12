@@ -4,6 +4,8 @@ Not stable yet
 
 I hope to upstream this to nixpkgs once it works properly
 
+See https://github.com/NixOS/nixpkgs/pull/470035 and https://github.com/NixOS/nixpkgs/pull/424900
+
 # Toolkits, via installer
 
 ```sh
