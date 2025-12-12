@@ -17,7 +17,7 @@
   oneMath = callPackage ./onemath.nix {
     inherit llvm oneMath-sycl-blas;
   };
-  oneDNN = callPackage ./onednn.nix {inherit llvm;};
+  oneDNN = callPackage ./onednn.nix {intel-llvm = llvm;};
   oneapi-ck = callPackage ./oneapi-ck.nix {};
 
   khronos-sycl-cts = callPackage ./khronos-sycl-cts.nix {mkDerivation = llvm.stdenv.mkDerivation;};
