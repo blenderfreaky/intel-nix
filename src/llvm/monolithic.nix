@@ -3,14 +3,14 @@
   wrapCC,
   symlinkJoin,
   overrideCC,
-  unified-runtime,
   emhash,
-  vc-intrinsics,
   ccacheStdenv,
 }: let
-  llvm-unwrapped = callPackage ./monolithic-unwrapped.nix {inherit unified-runtime emhash vc-intrinsics;};
+  llvm-unwrapped = callPackage ./monolithic-unwrapped.nix {inherit emhash;};
   # llvm-unwrapped = callPackage ./monolithic-unwrapped-fhs.nix {inherit unified-runtime emhash;};
-  llvm-wrapper = wrapCC llvm-unwrapped;
+  llvm-wrapper = (wrapCC llvm-unwrapped).overrideAttrs (old: {
+    propagatedBuildInputs = (old.propagatedBuildInputs or []) ++ llvm-unwrapped.propagatedBuildInputs;
+  });
   llvm = symlinkJoin {
     inherit (llvm-unwrapped) pname version meta;
 
@@ -28,6 +28,7 @@
         inherit stdenv;
         unwrapped = llvm-unwrapped;
         openmp = llvm-unwrapped.baseLlvm.openmp;
+        tests = callPackage ./tests.nix { inherit stdenv; };
       };
   };
   stdenv = overrideCC llvm-unwrapped.baseLlvm.stdenv llvm;

@@ -6,19 +6,14 @@
   ninja,
   python3,
   pkg-config,
-  # zstd,
+  zstd,
   pkgsStatic,
   hwloc,
-  valgrind,
-  # We use the in-tree unified-runtime, but we need all the same flags as the out-of-tree version.
-  # Rather than duplicating the flags, we can simply use the existing flags.
-  # We can also use this to debug unified-runtime without building the entire LLVM project.
-  unified-runtime,
-  vc-intrinsics,
   emhash,
   sphinx,
   doxygen,
   level-zero,
+  opencl-headers,
   libxml2,
   libedit,
   llvmPackages_21,
@@ -27,14 +22,13 @@
   spirv-headers,
   spirv-tools,
   fetchpatch,
-  perl,
+  # perl,
   zlib,
   ccacheStdenv,
-  tree,
   wrapCC,
-  ctestCheckHook,
-  ripgrep,
+  # ctestCheckHook,
   removeReferencesTo,
+  nix-update-script,
   rocmPackages ? {},
   cudaPackages ? {},
   levelZeroSupport ? true,
@@ -44,68 +38,95 @@
   rocmSupport ? true,
   rocmGpuTargets ? builtins.concatStringsSep ";" rocmPackages.clr.gpuTargets,
   nativeCpuSupport ? false,
-  vulkanSupport ? true,
   useLibcxx ? false,
   useLld ? true,
-  buildTests ? false,
+  # buildTests ? false,
   buildDocs ? false,
   buildMan ? false,
 }: let
-  version = "unstable-2025-10-22";
-  date = "20251022";
+  version = "unstable-2025-11-14";
+  date = "20251114";
   llvmPackages = llvmPackages_21;
-  inherit (pkgsStatic) zstd;
-  # stdenv' =
-  #   if useLibcxx
-  #   then llvmPackages.libcxxStdenv
-  #   else llvmPackages.stdenv;
-  # stdenv = stdenv';
-  # stdenv = ccacheStdenv.override {stdenv = stdenv';};
-  stdenv = ccacheStdenv;
-  deps = callPackage ./deps.nix {};
-  unified-runtime' = unified-runtime.override {
-    inherit
-      levelZeroSupport
-      openclSupport
-      cudaSupport
-      rocmSupport
-      rocmGpuTargets
-      nativeCpuSupport
-      vulkanSupport
-      buildTests
-      ;
+  stdenv = ccacheStdenv.override {
+    extraConfig = ''
+      export CCACHE_COMPRESS=1
+      #export CCACHE_DIR="$ {config.programs.ccache.cacheDir}"
+      export CCACHE_DIR="/var/cache/ccache"
+      export CCACHE_UMASK=007
+      export CCACHE_SLOPPINESS=random_seed
+      if [ ! -d "$CCACHE_DIR" ]; then
+        echo "====="
+        echo "Directory '$CCACHE_DIR' does not exist"
+        echo "Please create it with:"
+        echo "  sudo mkdir -m0770 '$CCACHE_DIR'"
+        echo "  sudo chown root:nixbld '$CCACHE_DIR'"
+        echo "====="
+        exit 1
+      fi
+      if [ ! -w "$CCACHE_DIR" ]; then
+        echo "====="
+        echo "Directory '$CCACHE_DIR' is not accessible for user $(whoami)"
+        echo "Please verify its access permissions"
+        echo "====="
+        exit 1
+      fi
+    '';
+  };
+  vc-intrinsics = fetchFromGitHub {
+    owner = "intel";
+    repo = "vc-intrinsics";
+    # See llvm/lib/SYCLLowerIR/CMakeLists.txt:17
+    rev = "60cea7590bd022d95f5cf336ee765033bd114d69";
+    sha256 = "sha256-1K16UEa6DHoP2ukSx58OXJdtDWyUyHkq5Gd2DUj1644=";
   };
   # See the postPatch phase for details on why this is used
   ccWrapperStub = wrapCC (
     stdenv.mkDerivation {
       name = "ccWrapperStub";
       dontUnpack = true;
-      installPhase = let
-        root = "/build/source/build";
-      in ''
-        mkdir -p $out/bin
-        cat > $out/bin/clang-22 <<EOF
+      installPhase = ''
+                mkdir -p $out/bin
+                cat > $out/bin/clang-22 <<'EOF'
         #!/bin/sh
-        exec "${root}/bin/clang-22" "\$@"
+        exec "$NIX_BUILD_TOP/source/build/bin/clang-22" "$@"
         EOF
-        chmod +x $out/bin/clang-22
-        cp $out/bin/clang-22 $out/bin/clang
-        cp $out/bin/clang-22 $out/bin/clang++
+                chmod +x $out/bin/clang-22
+                cp $out/bin/clang-22 $out/bin/clang
+                cp $out/bin/clang-22 $out/bin/clang++
       '';
       passthru.isClang = true;
     }
   );
 in
-  stdenv.mkDerivation (finalAttrs: {
+  stdenv.mkDerivation (finalAttrs: let
+    # We use the in-tree unified-runtime, but we need all the same flags as the out-of-tree version.
+    # Rather than duplicating the flags, we import them from unified-runtime.nix.
+    # This also lets us quickly test unified-runtime in isolation for debugging backend linking issues.
+    unified-runtime = callPackage ./unified-runtime.nix {
+      intel-llvm-src = finalAttrs.src;
+      inherit
+        levelZeroSupport
+        openclSupport
+        cudaSupport
+        rocmSupport
+        rocmGpuTargets
+        nativeCpuSupport
+        # vulkanSupport
+        ;
+    };
+  in {
     pname = "intel-llvm";
     inherit version;
 
     src = fetchFromGitHub {
       owner = "intel";
       repo = "llvm";
-      # tag = "v${version}";
-      rev = "889db98f40908e3227badbc0906ca46047d92d81";
-      hash = "sha256-59oGj+9P4MzFgBPCEQPqiMSTKSE5EO2jWYos5hBRk4M=";
+      # tag = "nightly-2025-11-21";
+      # This is the latest commit that uses level-zero 1.25.2
+      # The commit after it upgrades it to 1.26.0, which is
+      # a pre-release as of 2025-12-02
+      rev = "ab3dc98de0fd1ada9df12b138de1e1f8b715cc27";
+      hash = "sha256-oHk8kQVNsyC9vrOsDqVoFLYl2yMMaTgpQnAW9iHZLfE=";
     };
 
     outputs = [
@@ -128,9 +149,10 @@ in
       ++ lib.optionals useLld [
         llvmPackages.bintools
       ]
-      ++ lib.optionals buildTests [
-        perl
-      ];
+      # ++ lib.optionals buildTests [
+      #   perl
+      # ]
+      ;
 
     buildInputs =
       [
@@ -138,35 +160,39 @@ in
         doxygen
         spirv-tools
         libxml2
-        valgrind.dev
         hwloc
         emhash
         parallel-hashmap
-        #vc-intrinsics
+        pkgsStatic.zstd
       ]
       # ++ lib.optionals useLibcxx [
       #   llvmPackages.libcxx
       #   llvmPackages.libcxx.dev
       # ]
-      ++ unified-runtime'.buildInputs;
+      ++ unified-runtime.buildInputs;
 
     # separateDebugInfo = true;
     # dontFixup = true;
 
-    propagatedBuildInputs = [
-      zstd
-      zlib
-      libedit
-    ];
+    propagatedBuildInputs =
+      [
+        zstd
+        zlib
+        libedit
+      ]
+      ++ lib.optionals openclSupport [
+        opencl-headers
+      ];
 
     # # TODO: Is this needed?
     # nativeCheckInputs = lib.optionals buildTests [
     #   ctestCheckHook
     # ];
-    checkTarget =
-      if buildTests
-      then "check-all"
-      else null;
+    # checkTarget =
+    #   if buildTests
+    #   then "check-all"
+    #   else null;
+    checkTarget = null;
 
     cmakeBuildType = "Release";
 
@@ -182,20 +208,21 @@ in
     ];
 
     postPatch =
-      lib.optionalString buildTests ''
-        # Fix scan-build scripts to use Nix perl instead of /usr/bin/env
-        patchShebangs clang/tools/scan-build/libexec/
+      # lib.optionalString buildTests ''
+      #   # Fix scan-build scripts to use Nix perl instead of /usr/bin/env
+      #   patchShebangs clang/tools/scan-build/libexec/
+      # ''
+      # +
       ''
-      + ''
-          # Parts of libdevice are built using the freshly-built compiler.
-          # As it tries to link to system libraries, we need to wrap it with the
-          # usual nix cc-wrapper.
-          # Since the compiler to be wrapped is not available at this point,
-          # we use a stub that points to where it will be later on
-          # in `/build/source/build/bin/clang-22`
-          # Note: both nix and bash try to expand clang_exe here, so double-escape it
-          substituteInPlace libdevice/cmake/modules/SYCLLibdevice.cmake \
-            --replace-fail "\''${clang_exe}" "${ccWrapperStub}/bin/clang++"
+      # Parts of libdevice are built using the freshly-built compiler.
+      # As it tries to link to system libraries, we need to wrap it with the
+      # usual nix cc-wrapper.
+      # Since the compiler to be wrapped is not available at this point,
+      # we use a stub that points to where it will be later on
+      # in `$NIX_BUILD_TOP/source/build/bin/clang-22`
+      # Note: both nix and bash try to expand clang_exe here, so double-escape it
+      substituteInPlace libdevice/cmake/modules/SYCLLibdevice.cmake \
+        --replace-fail "\''${clang_exe}" "${ccWrapperStub}/bin/clang++"
 
           # When running without this, their CMake code copies files from the Nix store.
           # As the Nix store is read-only and COPY copies permissions by default,
@@ -215,7 +242,7 @@ in
         # Note that this cmake file is imported in various places, not just unified-runtime
         substituteInPlace unified-runtime/cmake/FetchOpenCL.cmake \
             --replace-fail "NO_CMAKE_PACKAGE_REGISTRY" ""
-      '';
+    '';
 
     preConfigure = ''
       flags=$(python buildbot/configure.py \
@@ -270,10 +297,14 @@ in
         (lib.cmakeBool "LLVM_ENABLE_SPHINX" (buildDocs || buildMan))
         (lib.cmakeBool "SPHINX_OUTPUT_HTML" buildDocs)
         (lib.cmakeBool "SPHINX_OUTPUT_MAN" buildMan)
-        (lib.cmakeBool "LLVM_BUILD_TESTS" buildTests)
-        (lib.cmakeBool "LLVM_INCLUDE_TESTS" buildTests)
-        (lib.cmakeBool "MLIR_INCLUDE_TESTS" buildTests)
-        (lib.cmakeBool "SYCL_INCLUDE_TESTS" buildTests)
+        # (lib.cmakeBool "LLVM_BUILD_TESTS" buildTests)
+        # (lib.cmakeBool "LLVM_INCLUDE_TESTS" buildTests)
+        # (lib.cmakeBool "MLIR_INCLUDE_TESTS" buildTests)
+        # (lib.cmakeBool "SYCL_INCLUDE_TESTS" buildTests)
+        (lib.cmakeBool "LLVM_BUILD_TESTS" false)
+        (lib.cmakeBool "LLVM_INCLUDE_TESTS" false)
+        (lib.cmakeBool "MLIR_INCLUDE_TESTS" false)
+        (lib.cmakeBool "SYCL_INCLUDE_TESTS" false)
 
         "-DLLVM_ENABLE_ZSTD=FORCE_ON"
         # TODO
@@ -301,7 +332,7 @@ in
         (lib.cmakeBool "FETCHCONTENT_FULLY_DISCONNECTED" true)
         (lib.cmakeBool "FETCHCONTENT_QUIET" false)
 
-        (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_VC-INTRINSICS" "${deps.vc-intrinsics}")
+        (lib.cmakeFeature "FETCHCONTENT_SOURCE_DIR_VC-INTRINSICS" "${vc-intrinsics}")
 
         (lib.cmakeFeature "LLVM_EXTERNAL_SPIRV_HEADERS_SOURCE_DIR" "${spirv-headers.src}")
 
@@ -317,35 +348,25 @@ in
         (lib.cmakeFeature "LLVM_INSTALL_PACKAGE_DIR" "${placeholder "dev"}/lib/cmake/llvm")
       ]
       # ++ lib.optional useLld (lib.cmakeFeature "LLVM_USE_LINKER" "lld")
-      ++ unified-runtime'.cmakeFlags;
+      ++ unified-runtime.cmakeFlags;
 
     # This hardening option causes compilation errors when compiling for amdgcn, spirv and others
-    # TODO: Can the cc wrapper be made aware of this somehow?
     hardeningDisable = ["zerocallusedregs"];
 
-    # TODO: Investigate why this is needed
+    # Without this it fails to link to hwloc, despite it being in the buildInputs
     NIX_LDFLAGS = "-lhwloc";
 
     requiredSystemFeatures = ["big-parallel"];
     enableParallelBuilding = true;
 
-    # postBuild = ''
-    #   echo "=== Build directory structure (for debugging) ==="
-    #   ${tree}/bin/tree -L 2 -d "$PWD" || find "$PWD" -maxdepth 2 -type d
-    #   echo "=== Checking for scan-build files ==="
-    #   ls -la "$PWD/libexec/" 2>/dev/null || echo "libexec directory does not exist"
-    #   echo "=== Checking for math.h in clang resource directory ==="
-    #   find "$PWD" -name "math.h" | head -5 || echo "No math.h found"
+    doCheck = false;
+
+    # preCheck = lib.optionalString buildTests ''
+    #   # Set CLANG environment variable to use wrapped clang for tests
+    #   # This is picked up by lit's use_llvm_tool("clang", search_env="CLANG", ...)
+    #   # and ensures tests have access to stdlib headers
+    #   export CLANG="${ccWrapperStub}/bin/clang++"
     # '';
-
-    doCheck = buildTests;
-
-    preCheck = lib.optionalString buildTests ''
-      # Set CLANG environment variable to use wrapped clang for tests
-      # This is picked up by lit's use_llvm_tool("clang", search_env="CLANG", ...)
-      # and ensures tests have access to stdlib headers
-      export CLANG="${ccWrapperStub}/bin/clang++"
-    '';
 
     # Copied from the regular LLVM derivation:
     #  pkgs/development/compilers/llvm/common/llvm/default.nix
@@ -360,15 +381,6 @@ in
         --replace-fail "$out/bin/llvm-config" "$dev/bin/llvm-config"
       substituteInPlace "$dev/lib/cmake/llvm/LLVMConfig.cmake" \
         --replace-fail 'set(LLVM_BINARY_DIR "''${LLVM_INSTALL_PREFIX}")' 'set(LLVM_BINARY_DIR "'"$lib"'")'
-    '';
-
-    postFixup = ''
-
-      echo !!!ld
-      ${ripgrep}/bin/rg --text $lib $dev || echo "No matches found"
-      echo !!!dl
-      ${ripgrep}/bin/rg --text $dev $lib || echo "No matches found"
-
     '';
 
     meta = with lib; {
@@ -389,5 +401,7 @@ in
       # Intels compiler is based on
       baseLlvm = llvmPackages_21;
       inherit ccWrapperStub;
+      inherit unified-runtime;
+      updateScript = nix-update-script {};
     };
   })

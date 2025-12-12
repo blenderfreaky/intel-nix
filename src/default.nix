@@ -3,17 +3,14 @@
   callPackage,
   pkgs,
 }: rec {
-  llvm-monolithic = callPackage ./llvm/monolithic.nix {inherit unified-runtime emhash vc-intrinsics;};
+  llvm-monolithic = callPackage ./llvm/monolithic.nix {inherit emhash vc-intrinsics;};
   llvm-standalone = callPackage ./llvm/standalone.nix {
-    inherit unified-runtime vc-intrinsics emhash; # spirv-llvm-translator;
+    inherit vc-intrinsics emhash;
   };
 
   # llvm = llvm-standalone;
   llvm = llvm-monolithic;
 
-  unified-runtime = callPackage ./unified-runtime.nix {
-    inherit unified-memory-framework;
-  };
   unified-memory-framework = callPackage ./unified-memory-framework.nix {};
 
   emhash = callPackage ./emhash.nix {};
