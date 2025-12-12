@@ -1,21 +1,9 @@
-{
-  lib,
-  callPackage,
-  pkgs,
-}: rec {
-  llvm-monolithic = callPackage ./llvm/monolithic.nix {inherit emhash vc-intrinsics;};
-  llvm-standalone = callPackage ./llvm/standalone.nix {
-    inherit vc-intrinsics emhash;
-  };
+{callPackage}: rec {
+  llvm-monolithic = callPackage ./llvm/monolithic.nix {};
+  llvm-standalone = callPackage ./llvm/standalone.nix {};
 
   # llvm = llvm-standalone;
   llvm = llvm-monolithic;
-
-  unified-memory-framework = callPackage ./unified-memory-framework.nix {};
-
-  emhash = callPackage ./emhash.nix {};
-  parallel-hashmap = callPackage ./parallel-hashmap.nix {};
-
   vc-intrinsics = callPackage ./vc-intrinsics.nix {};
 
   oneMath-sycl-blas = callPackage ./onemath-sycl-blas.nix {inherit llvm;};
