@@ -4,7 +4,7 @@
   symlinkJoin,
   overrideCC,
 }: let
-  llvm-unwrapped = callPackage ./unwrapped.nix {};
+  llvm-unwrapped = callPackage ./monolithic-unwrapped.nix {};
   llvm-wrapper = (wrapCC llvm-unwrapped).overrideAttrs (old: {
     # OpenCL needs to be passed through
     propagatedBuildInputs = old.propagatedBuildInputs ++ llvm-unwrapped.propagatedBuildInputs;

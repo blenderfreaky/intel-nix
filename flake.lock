@@ -34,27 +34,10 @@
         "type": "github"
       }
     },
-    "nixpkgs-c": {
-      "locked": {
-        "lastModified": 1757690998,
-        "narHash": "sha256-xqHyKAmh2aYnYcsj0n7w26ZoyVXwXgEsqRdK1HgiNnY=",
-        "owner": "blenderfreaky",
-        "repo": "nixpkgs",
-        "rev": "328c15d7cc7b8cd8a86c17587b79f5fcafb4b677",
-        "type": "github"
-      },
-      "original": {
-        "owner": "blenderfreaky",
-        "ref": "other/intel-cherry-picks-2",
-        "repo": "nixpkgs",
-        "type": "github"
-      }
-    },
     "root": {
       "inputs": {
         "flake-utils": "flake-utils",
-        "nixpkgs": "nixpkgs",
-        "nixpkgs-c": "nixpkgs-c"
+        "nixpkgs": "nixpkgs"
       }
     },
     "systems": {
